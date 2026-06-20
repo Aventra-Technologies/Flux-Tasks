@@ -15,7 +15,7 @@ Tasks • Roadmaps • Releases • Documentation • AI Prompts
   <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge">
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge">
   <img src="https://img.shields.io/badge/SQLite-Local-003B57?style=for-the-badge">
-  <img src="https://img.shields.io/badge/Offline-7CFFC4?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Offline-First-7CFFC4?style=for-the-badge">
 </p>
 
 ---
