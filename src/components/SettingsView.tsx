@@ -13,6 +13,7 @@ export const SettingsView: React.FC = () => {
     triggerBackup,
     restoreFromBackup,
     deleteBackup,
+    cleanAutoBackups,
     resetDatabase,
     loadAllFromDB,
     tasks,
@@ -20,7 +21,8 @@ export const SettingsView: React.FC = () => {
     releases,
     notes,
     prompts,
-    showToast
+    showToast,
+    dbPath
   } = useStore();
 
   const lang = settings.language;
@@ -56,9 +58,12 @@ export const SettingsView: React.FC = () => {
     fetchVersionAndRollback();
   }, []);
 
-  const formatSize = (bytes: number) => {
-    if (!bytes) return '';
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  const formatBytes = (bytes: number | undefined) => {
+    if (!bytes) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
   // Update states
@@ -371,6 +376,153 @@ export const SettingsView: React.FC = () => {
               })}
             </div>
           </div>
+
+          {/* 4. FINE-TUNED APPEARANCE METRICS */}
+          <div className="pt-5 border-t border-white/[0.04] space-y-4">
+            <h4 className="text-xs font-semibold tracking-wider text-slate-400 uppercase flex items-center gap-2">
+              <Icons.Sliders className="w-4 h-4 text-emerald-400" />
+              <span>{lang === 'ru' ? 'Тонкая настройка интерфейса' : lang === 'uk' ? 'Тонке налаштування інтерфейсу' : 'Fine-Tuned Metrics'}</span>
+            </h4>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Spacing Scale & Animations */}
+              <div className="space-y-4">
+                {/* Spacing Mode */}
+                <div className="space-y-2">
+                  <label className="text-[11px] font-medium text-slate-300 flex justify-between">
+                    <span>{lang === 'ru' ? 'Масштаб интервалов (Spacing)' : lang === 'uk' ? 'Масштаб інтервалів (Spacing)' : 'Layout Spacing Scale'}</span>
+                    <span className="text-[10px] font-mono text-emerald-400 font-bold uppercase">{settings.spacingScale === 'compact' ? (lang === 'ru' ? 'Компактный' : lang === 'uk' ? 'Компактний' : 'Compact') : (lang === 'ru' ? 'Комфортный' : lang === 'uk' ? 'Комфортний' : 'Comfortable')}</span>
+                  </label>
+                  <div className="flex bg-slate-900/40 rounded-xl p-1 border border-white/5 select-none w-fit">
+                    <button
+                      onClick={() => updateSettings('spacingScale', 'comfortable')}
+                      className={`py-1 px-3.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${settings.spacingScale !== 'compact' ? 'bg-white text-slate-950 shadow font-bold' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      {lang === 'ru' ? 'Комфортный' : lang === 'uk' ? 'Комфортний' : 'Comfortable'}
+                    </button>
+                    <button
+                      onClick={() => updateSettings('spacingScale', 'compact')}
+                      className={`py-1 px-3.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${settings.spacingScale === 'compact' ? 'bg-white text-slate-950 shadow font-bold' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      {lang === 'ru' ? 'Компактный' : lang === 'uk' ? 'Компактний' : 'Compact'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Interface Animations */}
+                <div className="space-y-2">
+                  <label className="text-[11px] font-medium text-slate-300 flex justify-between">
+                    <span>{lang === 'ru' ? 'Анимации интерфейса' : lang === 'uk' ? 'Анімації інтерфейсу' : 'UI Animations'}</span>
+                    <span className="text-[10px] font-mono text-emerald-400 font-bold uppercase">{settings.animationsEnabled === 'false' ? (lang === 'ru' ? 'Выкл' : 'Off') : (lang === 'ru' ? 'Вкл' : 'On')}</span>
+                  </label>
+                  <div className="flex bg-slate-900/40 rounded-xl p-1 border border-white/5 select-none w-fit">
+                    <button
+                      onClick={() => updateSettings('animationsEnabled', 'true')}
+                      className={`py-1 px-3.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${settings.animationsEnabled !== 'false' ? 'bg-white text-slate-950 shadow font-bold' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      {lang === 'ru' ? 'Включены' : lang === 'uk' ? 'Увімкнено' : 'Enabled'}
+                    </button>
+                    <button
+                      onClick={() => updateSettings('animationsEnabled', 'false')}
+                      className={`py-1 px-3.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${settings.animationsEnabled === 'false' ? 'bg-white text-slate-950 shadow font-bold' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      {lang === 'ru' ? 'Выключены' : lang === 'uk' ? 'Вимкнено' : 'Disabled'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Font Scale & Radius */}
+              <div className="space-y-4">
+                {/* Font Scale */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-[11px] font-medium text-slate-300">
+                    <span>{lang === 'ru' ? 'Масштаб шрифта' : lang === 'uk' ? 'Масштаб шрифту' : 'Font Size Scale'}</span>
+                    <span className="font-mono text-emerald-400 font-bold">{settings.fontScale || '1.0'}x</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.80"
+                    max="1.30"
+                    step="0.05"
+                    value={settings.fontScale || '1.0'}
+                    onChange={(e) => updateSettings('fontScale', e.target.value)}
+                    className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-400"
+                  />
+                </div>
+
+                {/* Card Radius */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-[11px] font-medium text-slate-300">
+                    <span>{lang === 'ru' ? 'Скругление карточек (Radius)' : lang === 'uk' ? 'Скруглення карток (Radius)' : 'Card Border Radius'}</span>
+                    <span className="font-mono text-emerald-400 font-bold">{settings.cardRadius || '18'}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="32"
+                    step="1"
+                    value={settings.cardRadius || '18'}
+                    onChange={(e) => updateSettings('cardRadius', e.target.value)}
+                    className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-400"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-3">
+              {/* Glass Opacity */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[11px] font-medium text-slate-300">
+                  <span>{lang === 'ru' ? 'Интенсивность стекла (Opacity)' : lang === 'uk' ? 'Інтенсивність скла (Opacity)' : 'Glass Opacity'}</span>
+                  <span className="font-mono text-emerald-400 font-bold">{Math.round((parseFloat(settings.glassOpacity || '0.015')) * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.00"
+                  max="0.30"
+                  step="0.005"
+                  value={settings.glassOpacity || '0.015'}
+                  onChange={(e) => updateSettings('glassOpacity', e.target.value)}
+                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-400"
+                />
+              </div>
+
+              {/* Glass Blur */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[11px] font-medium text-slate-300">
+                  <span>{lang === 'ru' ? 'Радиус размытия (Blur)' : lang === 'uk' ? 'Радіус розмиття (Blur)' : 'Glass Blur Radius'}</span>
+                  <span className="font-mono text-emerald-400 font-bold">{settings.glassBlur || '36'}px</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="64"
+                  step="2"
+                  value={settings.glassBlur || '36'}
+                  onChange={(e) => updateSettings('glassBlur', e.target.value)}
+                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-400"
+                />
+              </div>
+
+              {/* Sidebar Opacity */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[11px] font-medium text-slate-300">
+                  <span>{lang === 'ru' ? 'Прозрачность боковой панели' : lang === 'uk' ? 'Прозорість бічної панелі' : 'Sidebar Opacity'}</span>
+                  <span className="font-mono text-emerald-400 font-bold">{Math.round((parseFloat(settings.sidebarOpacity || '0.03')) * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.00"
+                  max="0.20"
+                  step="0.005"
+                  value={settings.sidebarOpacity || '0.03'}
+                  onChange={(e) => updateSettings('sidebarOpacity', e.target.value)}
+                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-400"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -384,185 +536,309 @@ export const SettingsView: React.FC = () => {
       <GitHubSettings />
 
       {/* SECTION II: SYSTEM CONTROLS & DATABASE UTILITY (MOVED TO THE ABSOLUTE BOTTOM) */}
-      <div className="p-5 rounded-2xl border border-white/[0.03] bg-slate-950/10 space-y-6">
-        <div>
-          <h3 className="text-xs font-display font-semibold text-slate-400 flex items-center gap-2">
-            <Icons.Cpu className="w-4 h-4 text-slate-400" />
-            <span>{getTranslation(lang, 'systemSectionTitle')}</span>
-          </h3>
-          <p className="text-[10px] text-slate-500 mt-0.5">{getTranslation(lang, 'systemSectionDesc')}</p>
+      <div className="p-6 rounded-2xl border border-white/[0.03] bg-slate-950/20 backdrop-blur-md space-y-6">
+        {/* Header */}
+        <div className="flex justify-between items-center pb-3 border-b border-white/[0.03]">
+          <div>
+            <h3 className="text-sm font-display font-semibold text-slate-100 flex items-center gap-2">
+              <Icons.Cpu className="w-5 h-5 text-indigo-400 animate-pulse" />
+              <span>{getTranslation(lang, 'systemSectionTitle')}</span>
+            </h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">{getTranslation(lang, 'systemSectionDesc')}</p>
+          </div>
+          
+          {/* Language Switch */}
+          <div className="flex items-center gap-2 bg-slate-900/40 rounded-xl p-1 border border-white/5 select-none w-fit">
+            {[
+              { tag: 'ru', text: 'RU' },
+              { tag: 'uk', text: 'UK' },
+              { tag: 'en', text: 'EN' }
+            ].map(({ tag, text }) => {
+              const isSel = settings.language === tag;
+              return (
+                <button
+                  key={tag}
+                  onClick={() => updateSettings('language', tag)}
+                  className={`py-1 px-2.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                    isSel 
+                      ? 'bg-white text-slate-950 shadow' 
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {text}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="border-t border-white/[0.02] pt-4 space-y-5">
-          {/* 1. LANGUAGE SWITCH */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-semibold tracking-wider text-slate-400 uppercase flex items-center gap-2">
-              <Icons.Languages className="w-3.5 h-3.5 text-slate-500" />
-              <span>{getTranslation(lang, 'languageLabel')}</span>
-            </h4>
-            
-            <div className="flex gap-2 select-none">
-              {[
-                { tag: 'ru', text: 'Русский' },
-                { tag: 'uk', text: 'Українська' },
-                { tag: 'en', text: 'English (US)' }
-              ].map(({ tag, text }) => {
-                const isSel = settings.language === tag;
-                return (
-                  <button
-                    key={tag}
-                    onClick={() => updateSettings('language', tag)}
-                    className={`py-1.5 px-3.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                      isSel 
-                        ? 'bg-white text-slate-950 border-white shadow-sm font-bold' 
-                        : 'bg-slate-900/30 text-slate-500 border-white/5 hover:bg-slate-900/50 hover:text-slate-300'
-                    }`}
-                  >
-                    {text}
-                  </button>
-                );
-              })}
+        {/* Premium 3-card Grid layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Left card: Локальная база данных SQLite */}
+          <div className="glass-card p-5 flex flex-col justify-between border border-white/5 bg-slate-900/10 text-[11px] hover:border-white/10 transition-all">
+            <div className="space-y-4">
+              <h4 className="text-xs font-semibold text-slate-200 flex items-center gap-1.5 uppercase tracking-wider">
+                <Icons.Database className="w-3.5 h-3.5 text-indigo-400" />
+                <span>{lang === 'ru' ? 'Локальная БД SQLite' : lang === 'uk' ? 'Локальна БД SQLite' : 'SQLite Local DB'}</span>
+              </h4>
+              
+              <div className="space-y-2.5 font-sans pt-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">{lang === 'ru' ? 'Статус:' : 'Status:'}</span>
+                  <span className="font-mono font-bold text-emerald-400 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block" />
+                    Live
+                  </span>
+                </div>
+                
+                <div className="flex items-center justify-between pt-1 border-t border-white/[0.03]">
+                  <span className="text-slate-400">Engine:</span>
+                  <span className="font-mono text-slate-300 font-semibold">SQLite 3 (Sync)</span>
+                </div>
+
+                <div className="pt-1 border-t border-white/[0.03] space-y-1">
+                  <div className="text-slate-400">{lang === 'ru' ? 'Путь / имя файла:' : 'File path:'}</div>
+                  <div className="font-mono text-[9px] text-slate-500 font-medium break-all select-text p-1.5 rounded bg-black/30 border border-white/5 max-h-16 overflow-y-auto">
+                    {dbPath || 'tasks.db'}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1 border-t border-white/[0.03]">
+                  <span className="text-slate-400">{lang === 'ru' ? 'Количество задач:' : 'Tasks Count:'}</span>
+                  <span className="font-mono text-slate-300 font-bold">{tasks.length}</span>
+                </div>
+
+                <div className="flex items-center justify-between pt-1 border-t border-white/[0.03]">
+                  <span className="text-slate-400">{lang === 'ru' ? 'Количество проектов:' : 'Projects Count:'}</span>
+                  <span className="font-mono text-slate-300 font-bold">{projects.length}</span>
+                </div>
+
+                <div className="flex items-center justify-between pt-1 border-t border-white/[0.03]">
+                  <span className="text-slate-400">{lang === 'ru' ? 'Количество заметок:' : 'Notes Count:'}</span>
+                  <span className="font-mono text-slate-300 font-bold">{notes.length}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 mt-auto">
+              <div className="text-[9px] font-mono text-slate-500 text-center uppercase tracking-widest text-slate-500">
+                {getTranslation(lang, 'localSandboxStorage')}
+              </div>
             </div>
           </div>
 
-          {/* 2. SQL DATABASE UTILITY MANAGER */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-white/[0.03] pb-1.5">
-              <h4 className="text-xs font-semibold tracking-wider text-slate-400 uppercase flex items-center gap-2">
-                <Icons.Database className="w-3.5 h-3.5 text-slate-500" />
-                <span>{getTranslation(lang, 'dbSection')}</span>
+          {/* Middle card: Резервные копии */}
+          <div className="glass-card p-5 flex flex-col justify-between border border-white/5 bg-slate-900/10 hover:border-white/10 transition-all">
+            <div className="space-y-4">
+              <h4 className="text-xs font-semibold text-slate-200 flex items-center gap-1.5 uppercase tracking-wider">
+                <Icons.DownloadCloud className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{lang === 'ru' ? 'Резервные копии' : lang === 'uk' ? 'Резервні копії' : 'Backups & Settings'}</span>
               </h4>
-              <span className="text-[8px] font-mono font-bold text-slate-500 uppercase">{getTranslation(lang, 'localSandboxStorage')}</span>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               
-              {/* SQLite details list */}
-              <div className="space-y-2.5 p-3 rounded-xl border border-white/5 bg-black/20 text-[11px]">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">{getTranslation(lang, 'dbEngineStatus')}:</span>
-                  <span className="font-mono font-bold text-emerald-400/90">{getTranslation(lang, 'dbEngineLive')}</span>
+              {/* Backup Settings */}
+              <div className="space-y-3.5 pt-1.5">
+                {/* Enabled Toggle */}
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-300 font-semibold">{lang === 'ru' ? 'Автобэкап:' : 'Auto Backup:'}</span>
+                  <button
+                    onClick={() => updateSettings('autoBackupEnabled', settings.autoBackupEnabled === 'false' ? 'true' : 'false')}
+                    className={`py-1 px-3.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer border ${
+                      settings.autoBackupEnabled !== 'false'
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
+                        : 'bg-slate-900/50 text-slate-500 border-white/5'
+                    }`}
+                  >
+                    {settings.autoBackupEnabled !== 'false' 
+                      ? (lang === 'ru' ? 'Включено' : 'Enabled') 
+                      : (lang === 'ru' ? 'Выключено' : 'Disabled')}
+                  </button>
                 </div>
-                <div className="flex items-center justify-between pt-1 border-t border-white/[0.03] text-[10px]">
-                  <span className="text-slate-500">{lang === 'ru' ? 'Файл базы данных' : lang === 'uk' ? 'Файл бази даних' : 'Database File'}</span>
-                  <span className="font-mono text-slate-400 font-bold">tasks.db (SQLite3)</span>
+
+                {/* Backup Interval Select */}
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-300 font-semibold">{lang === 'ru' ? 'Интервал автобэкапа:' : 'Auto backup interval:'}</span>
+                  <select
+                    value={settings.autoBackupIntervalHours || '12'}
+                    onChange={(e) => updateSettings('autoBackupIntervalHours', e.target.value)}
+                    className="py-1 px-1.5 bg-slate-950 border border-white/10 rounded font-mono text-[10px] text-white focus:outline-none cursor-pointer"
+                  >
+                    <option value="6">6 {lang === 'ru' ? 'часов' : 'hours'}</option>
+                    <option value="12">12 {lang === 'ru' ? 'часов' : 'hours'}</option>
+                    <option value="24">24 {lang === 'ru' ? 'часа' : 'hours'}</option>
+                    <option value="48">48 {lang === 'ru' ? 'часов' : 'hours'}</option>
+                  </select>
                 </div>
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="text-slate-500">{getTranslation(lang, 'recordCounters')}</span>
-                  <span className="font-mono text-slate-300 font-semibold">{tasks.length} tasks, {projects.length} proj, {notes.length} notes</span>
+
+                {/* Retention period */}
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-300 font-semibold">{lang === 'ru' ? 'Хранить автобэкапы:' : 'Backup retention:'}</span>
+                  <select
+                    value={settings.backupRetentionDays || '3'}
+                    onChange={(e) => updateSettings('backupRetentionDays', e.target.value)}
+                    className="py-1 px-1.5 bg-slate-950 border border-white/10 rounded font-mono text-[10px] text-white focus:outline-none cursor-pointer"
+                  >
+                    <option value="1">1 {lang === 'ru' ? 'день' : 'day'}</option>
+                    <option value="3">3 {lang === 'ru' ? 'дня' : 'days'}</option>
+                    <option value="7">7 {lang === 'ru' ? 'дней' : 'days'}</option>
+                    <option value="14">14 {lang === 'ru' ? 'дней' : 'days'}</option>
+                    <option value="30">30 {lang === 'ru' ? 'дней' : 'days'}</option>
+                  </select>
                 </div>
               </div>
 
-              {/* Backup Restore actions */}
-              <div className="space-y-3 flex flex-col justify-between">
-                <div className="space-y-2">
-                  <div className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider">{getTranslation(lang, 'dbBackupsTitle')}</div>
-                  
-                  <div className="flex flex-wrap gap-2 select-none">
-                    {/* Save Backup Trigger */}
-                    <button
-                      onClick={() => triggerBackup('manual')}
-                      className="py-1 px-2.5 rounded-lg bg-emerald-500/90 hover:bg-emerald-500 text-slate-950 text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
-                    >
-                      <Icons.Download className="w-3 h-3" />
-                      <span>{getTranslation(lang, 'createBackup')}</span>
-                    </button>
+              {/* Action Buttons */}
+              <div className="pt-2 border-t border-white/[0.03] space-y-2 flex flex-col">
+                {/* Create Manual Backup */}
+                <button
+                  onClick={() => triggerBackup('manual')}
+                  className="py-1.5 px-3 rounded-xl bg-emerald-500/90 hover:bg-emerald-500 text-slate-950 text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                >
+                  <Icons.Plus className="w-3.5 h-3.5" />
+                  <span>{lang === 'ru' ? 'Создать копию сейчас' : lang === 'uk' ? 'Створити копію зараз' : 'Create Copy Now'}</span>
+                </button>
 
-                    {/* Import/Restore Backup Trigger */}
-                    <button 
-                      onClick={handleImport}
-                      className="py-1 px-2.5 rounded-lg border border-white/15 bg-white/5 text-slate-300 text-[11px] hover:bg-white/10 hover:text-white flex items-center gap-1 cursor-pointer transition-colors"
-                    >
-                      <Icons.Upload className="w-3 h-3" />
-                      <span>{lang === 'ru' ? 'Импортировать JSON/MD' : lang === 'uk' ? 'Імпортувати JSON/MD' : 'Import JSON/MD'}</span>
-                    </button>
-                  </div>
-                  {restoreFeedback && (
-                    <div className="text-[10px] font-mono text-emerald-400 mt-1">{restoreFeedback}</div>
-                  )}
-                </div>
+                {/* Import JSON/MD */}
+                <button
+                  onClick={handleImport}
+                  className="py-1.5 px-3 rounded-xl border border-white/10 bg-white/5 text-slate-300 text-[10px] hover:bg-white/10 hover:text-white flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                >
+                  <Icons.Upload className="w-3.5 h-3.5" />
+                  <span>{lang === 'ru' ? 'Импортировать JSON / MD' : lang === 'uk' ? 'Імпортувати JSON / MD' : 'Import JSON / MD'}</span>
+                </button>
 
-                {/* Bulk project exports */}
-                <div className="space-y-1.5 pt-1.5 border-t border-white/[0.02]">
-                  <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">{lang === 'ru' ? 'Экспорт данных' : lang === 'uk' ? 'Експорт даних' : 'Export Workspace'}</div>
-                  <div className="flex flex-wrap gap-1.5 select-none">
-                    <button
-                      onClick={() => handleExportData('json')}
-                      className="py-1 px-2 rounded hover:bg-teal-500/5 hover:border-teal-500/25 border border-white/5 text-[9px] text-teal-400/90 flex items-center gap-1 cursor-pointer"
-                    >
-                      <span>JSON</span>
-                    </button>
-                    <button
-                      onClick={() => handleExportData('md')}
-                      className="py-1 px-2 rounded hover:bg-teal-500/5 hover:border-teal-500/25 border border-white/5 text-[9px] text-teal-400/90 flex items-center gap-1 cursor-pointer"
-                    >
-                      <span>Markdown</span>
-                    </button>
-                    <button
-                      onClick={() => handleExportData('html')}
-                      className="py-1 px-2 rounded hover:bg-teal-500/5 hover:border-teal-500/25 border border-white/5 text-[9px] text-teal-400/90 flex items-center gap-1 cursor-pointer"
-                    >
-                      <span>HTML Report</span>
-                    </button>
-                    <button
-                      onClick={() => handleExportData('csv')}
-                      className="py-1 px-2 rounded hover:bg-teal-500/5 hover:border-teal-500/25 border border-white/5 text-[9px] text-teal-400/90 flex items-center gap-1 cursor-pointer"
-                    >
-                      <span>CSV Table</span>
-                    </button>
-                    <button
-                      onClick={resetDatabase}
-                      className="py-1 px-2 rounded text-[9px] hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 border border-transparent hover:border-rose-400/20 cursor-pointer text-right ml-auto"
-                    >
-                      {lang === 'ru' ? 'Очистить БД' : lang === 'uk' ? 'Очистити БД' : 'Clear DB'}
-                    </button>
-                  </div>
+                {/* Exports dropdown/row */}
+                <div className="grid grid-cols-4 gap-1 pt-1">
+                  <button
+                    onClick={() => handleExportData('json')}
+                    title="Export JSON"
+                    className="py-1 px-1 text-center rounded border border-white/5 hover:border-teal-500/20 bg-slate-900/50 hover:bg-teal-500/5 text-[9px] text-teal-400 font-bold cursor-pointer"
+                  >
+                    JSON
+                  </button>
+                  <button
+                    onClick={() => handleExportData('md')}
+                    title="Export Markdown"
+                    className="py-1 px-1 text-center rounded border border-white/5 hover:border-teal-500/20 bg-slate-900/50 hover:bg-teal-500/5 text-[9px] text-teal-400 font-bold cursor-pointer"
+                  >
+                    MD
+                  </button>
+                  <button
+                    onClick={() => handleExportData('html')}
+                    title="Export HTML"
+                    className="py-1 px-1 text-center rounded border border-white/5 hover:border-teal-500/20 bg-slate-900/50 hover:bg-teal-500/5 text-[9px] text-teal-400 font-bold cursor-pointer"
+                  >
+                    HTML
+                  </button>
+                  <button
+                    onClick={() => handleExportData('csv')}
+                    title="Export CSV"
+                    className="py-1 px-1 text-center rounded border border-white/5 hover:border-teal-500/20 bg-slate-900/50 hover:bg-teal-500/5 text-[9px] text-teal-400 font-bold cursor-pointer"
+                  >
+                    CSV
+                  </button>
                 </div>
               </div>
             </div>
 
-            {/* Backups logs */}
-            <div className="space-y-2 select-none pt-2">
-              <div className="text-[9px] font-semibold text-slate-500 uppercase tracking-widest">{lang === 'ru' ? 'Резервные копии (SQLite)' : lang === 'uk' ? 'Резервні копії (SQLite)' : 'SQLite Physical Database Backups'}</div>
-              <div className="space-y-1.5 max-h-40 overflow-y-auto scrollbar-thin scrollbar-thumb-white/5 scrollbar-track-transparent">
+            <div className="pt-4 mt-auto border-t border-white/[0.03] space-y-2">
+              {/* Retention clean button */}
+              <button
+                onClick={async () => {
+                  const res = await cleanAutoBackups();
+                  if (res.success) {
+                    showToast(
+                      lang === 'ru' 
+                        ? `Очищено старых копий: ${res.deletedCount}` 
+                        : `Deleted old auto backups: ${res.deletedCount}`, 
+                      'success'
+                    );
+                  }
+                }}
+                className="w-full py-1.5 rounded-lg border border-rose-500/10 hover:border-rose-500/20 hover:bg-rose-500/5 text-rose-400 hover:text-rose-300 text-[9px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+              >
+                <Icons.Trash2 className="w-3.5 h-3.5" />
+                <span>{lang === 'ru' ? 'Очистить старые AUTO backups' : 'Clean old AUTO backups'}</span>
+              </button>
+
+              {/* Clear DB Button */}
+              <button
+                onClick={resetDatabase}
+                className="w-full py-1.5 rounded-lg border border-transparent hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 text-[9px] font-semibold flex items-center justify-center cursor-pointer transition-colors"
+              >
+                {lang === 'ru' ? 'Очистить БД' : lang === 'uk' ? 'Очистити БД' : 'Clear DB'}
+              </button>
+            </div>
+          </div>
+
+          {/* Right card: Список резервных копий */}
+          <div className="glass-card p-5 flex flex-col justify-between border border-white/5 bg-slate-900/10 hover:border-white/10 transition-all lg:col-span-1">
+            <div className="space-y-3 flex-1 flex flex-col overflow-hidden">
+              <h4 className="text-xs font-semibold text-slate-200 flex items-center gap-1.5 uppercase tracking-wider shrink-0">
+                <Icons.List className="w-3.5 h-3.5 text-indigo-400" />
+                <span>{lang === 'ru' ? 'Список резервных копий' : lang === 'uk' ? 'Список резервних копій' : 'Backup File List'}</span>
+              </h4>
+              
+              {/* Backups List Scroll Container with Custom Scrollbar */}
+              <div className="flex-1 min-h-[220px] max-h-[300px] overflow-y-auto space-y-2 pr-1 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                 {backups.map((bak) => (
-                  <div key={bak.id} className="p-2 border border-white/5 bg-slate-900/10 rounded-lg flex items-center justify-between text-[10px]">
-                    <div className="flex items-center gap-2">
+                  <div key={bak.id} className="p-2.5 border border-white/5 bg-black/25 rounded-xl space-y-1.5 hover:border-white/10 transition-all select-text">
+                    <div className="flex items-center justify-between">
                       <span className={`text-[8px] font-mono px-1 py-0.2 rounded border font-semibold ${
-                        bak.type === 'auto' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/25' : 'bg-emerald-500/10 text-emerald-400/90 border-emerald-500/25'
+                        bak.type === 'auto' 
+                          ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/25' 
+                          : 'bg-emerald-500/10 text-emerald-400/90 border-emerald-500/25'
                       }`}>
                         {bak.type === 'auto' ? 'AUTO' : 'MANUAL'}
                       </span>
-                      <span className="text-slate-300 font-mono text-[9px]">{bak.id}</span>
+                      
+                      <span className="font-mono text-[9px] text-slate-400 font-bold shrink-0">
+                        {formatBytes(bak.sizeBytes)}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-3 text-slate-500">
+                    
+                    <div className="font-mono text-[9px] text-slate-300 break-all select-all font-semibold">
+                      {bak.id}
+                    </div>
+
+                    <div className="flex items-center justify-between text-[9px] text-slate-500 pt-1 border-t border-white/[0.02]">
                       <span>{new Date(bak.timestamp).toLocaleString(lang === 'ru' ? 'ru-RU' : 'en-US')}</span>
-                      <button 
-                        onClick={async () => {
-                          const res = await restoreFromBackup(bak.id);
-                           if (res.success) {
-                             showToast(lang === 'ru' ? 'База данных успешно восстановлена!' : 'Database restored successfully!', 'success');
-                           } else {
-                             showToast(`Error: ${res.error}`, 'error');
-                           }
-                        }}
-                        className="text-[10px] text-emerald-400 hover:text-emerald-300 underline cursor-pointer"
-                      >
-                        {lang === 'ru' ? 'Восстановить' : 'Restore'}
-                      </button>
-                      <button 
-                        onClick={() => deleteBackup(bak.id)}
-                        className="text-[10px] text-rose-400 hover:text-rose-300 underline cursor-pointer"
-                      >
-                        {lang === 'ru' ? 'Удалить' : 'Delete'}
-                      </button>
+                      
+                      <div className="flex items-center gap-2.5 font-bold shrink-0">
+                        <button 
+                          onClick={async () => {
+                            const res = await restoreFromBackup(bak.id);
+                            if (res.success) {
+                              showToast(lang === 'ru' ? 'База данных успешно восстановлена!' : 'Database restored successfully!', 'success');
+                            } else {
+                              showToast(`Error: ${res.error}`, 'error');
+                            }
+                          }}
+                          className="text-[10px] text-emerald-400 hover:text-emerald-300 hover:underline cursor-pointer flex items-center gap-0.5"
+                        >
+                          <Icons.RotateCcw className="w-2.5 h-2.5" />
+                          <span>{lang === 'ru' ? 'Восст.' : 'Restore'}</span>
+                        </button>
+                        <button 
+                          onClick={() => deleteBackup(bak.id)}
+                          className="text-[10px] text-rose-400 hover:text-rose-300 hover:underline cursor-pointer flex items-center gap-0.5"
+                        >
+                          <Icons.X className="w-2.5 h-2.5" />
+                          <span>{lang === 'ru' ? 'Удалить' : 'Delete'}</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
                 {backups.length === 0 && (
-                  <div className="text-center py-4 text-slate-600 text-[10px]">No physical backups found.</div>
+                  <div className="h-full flex items-center justify-center py-10 text-slate-600 text-[10px] font-sans text-center">
+                    {lang === 'ru' ? 'Резервные копии не найдены' : 'No backups found.'}
+                  </div>
                 )}
               </div>
-            </div>           </div>
+            </div>
           </div>
+
         </div>
       </div>
 
@@ -704,7 +980,7 @@ export const SettingsView: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-slate-500">{lang === 'ru' ? 'Размер:' : lang === 'uk' ? 'Розмір:' : 'Download Size:'}</span>
-                  <span className="font-mono font-semibold text-slate-300 ml-1.5">{discoveredManifest.size ? formatSize(discoveredManifest.size) : 'Unknown'}</span>
+                  <span className="font-mono font-semibold text-slate-300 ml-1.5">{discoveredManifest.size ? formatBytes(discoveredManifest.size) : 'Unknown'}</span>
                 </div>
                 <div>
                   <span className="text-slate-500">{lang === 'ru' ? 'Канал:' : lang === 'uk' ? 'Канал:' : 'Channel:'}</span>

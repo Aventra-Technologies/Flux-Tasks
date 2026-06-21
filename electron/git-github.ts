@@ -1,12 +1,13 @@
 import { ipcMain, safeStorage, shell } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
-import { exec, spawn } from 'child_process';
+import { exec, execFile, spawn } from 'child_process';
 import { promisify } from 'util';
 import { loadSettings, saveSetting } from './database';
 import * as http from 'http';
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export function getDecryptedToken(): string | null {
   try {
@@ -86,9 +87,10 @@ async function runGitCommand(localPath: string, args: string[]): Promise<string>
     throw new Error(`Local directory does not exist: ${localPath}`);
   }
   
-  // Format arguments safely
-  const command = `git ${args.join(' ')}`;
-  const { stdout, stderr } = await execAsync(command, { cwd: localPath });
+  const settings = loadSettings();
+  const gitPath = settings['gitPath'] || 'git';
+  
+  const { stdout, stderr } = await execFileAsync(gitPath, args, { cwd: localPath });
   return stdout || stderr;
 }
 
@@ -683,8 +685,15 @@ export function registerGithubGitHandlers() {
   // Git: Local Commit
   ipcMain.handle('git:commit', async (event, localPath, message) => {
     try {
+      const settings = loadSettings();
+      if (settings['gitUsername']) {
+        await runGitCommand(localPath, ['config', 'user.name', settings['gitUsername']]);
+      }
+      if (settings['gitEmail']) {
+        await runGitCommand(localPath, ['config', 'user.email', settings['gitEmail']]);
+      }
       await runGitCommand(localPath, ['add', '-A']);
-      const output = await runGitCommand(localPath, ['commit', '-m', `"${message.replace(/"/g, '\\"')}"`]);
+      const output = await runGitCommand(localPath, ['commit', '-m', message]);
       return { success: true, output };
     } catch (err: any) {
       return { success: false, error: err.message };
@@ -696,10 +705,38 @@ export function registerGithubGitHandlers() {
     try {
       const args = ['tag', tagName];
       if (message) {
-        args.push('-m', `"${message.replace(/"/g, '\\"')}"`);
+        args.push('-m', message);
       }
       const output = await runGitCommand(localPath, args);
       return { success: true, output };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Git: Push Tag
+  ipcMain.handle('git:pushTag', async (event, localPath, tagName) => {
+    try {
+      const output = await runGitCommand(localPath, ['push', 'origin', tagName]);
+      return { success: true, output };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Git: Copy File to Project Folder
+  ipcMain.handle('git:copyFile', async (event, sourcePath, destDirectory) => {
+    try {
+      if (!fs.existsSync(sourcePath)) {
+        return { success: false, error: `Source file does not exist: ${sourcePath}` };
+      }
+      if (!fs.existsSync(destDirectory)) {
+        return { success: false, error: `Destination directory does not exist: ${destDirectory}` };
+      }
+      const fileName = path.basename(sourcePath);
+      const destPath = path.join(destDirectory, fileName);
+      fs.copyFileSync(sourcePath, destPath);
+      return { success: true, destPath };
     } catch (err: any) {
       return { success: false, error: err.message };
     }

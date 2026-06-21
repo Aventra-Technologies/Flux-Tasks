@@ -88,6 +88,7 @@ interface StoreContextType {
   activityLogs: any[];
   settings: DesignSystem & { language: AppLanguage; onboardingCompleted: string; updateChannel: string; taskViewMode: 'list' | 'kanban'; projectViewMode: 'list' | 'kanban' };
   backups: BackupItem[];
+  dbPath: string;
   filters: {
     projectId: string; // 'all' or specific
     priority: string;   // 'all' or specific
@@ -128,10 +129,11 @@ interface StoreContextType {
   addPrompt: (title: string, description: string, content: string, provider: 'chatgpt' | 'gemini' | 'claude' | 'custom', tags?: string[]) => Promise<PromptItem>;
   updatePrompt: (id: string, title: string, description: string, content: string, provider: 'chatgpt' | 'gemini' | 'claude' | 'custom', tags?: string[]) => Promise<void>;
   deletePrompt: (id: string) => Promise<void>;
-  updateSettings: (key: keyof (DesignSystem & { language: AppLanguage; onboardingCompleted: string; updateChannel: string; taskViewMode: 'list' | 'kanban'; projectViewMode: 'list' | 'kanban' }), value: any) => Promise<void>;
+  updateSettings: (key: keyof (DesignSystem & { language: AppLanguage; onboardingCompleted: string; updateChannel: string; taskViewMode: 'list' | 'kanban'; projectViewMode: 'list' | 'kanban'; enableGitIntegration?: string; gitPath?: string; gitUsername?: string; gitEmail?: string }), value: any) => Promise<void>;
   triggerBackup: (type?: 'auto' | 'manual') => Promise<void>;
   restoreFromBackup: (fileName: string) => Promise<{ success: boolean; error?: string }>;
   deleteBackup: (fileName: string) => Promise<void>;
+  cleanAutoBackups: () => Promise<{ success: boolean; deletedCount: number }>;
   loadAllFromDB: () => Promise<void>;
   toast: { message: string; type: 'success' | 'error' | 'info' } | null;
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
@@ -141,7 +143,24 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-const DEFAULT_SETTINGS: DesignSystem & { language: AppLanguage; onboardingCompleted: string; updateChannel: string; taskViewMode: 'list' | 'kanban'; projectViewMode: 'list' | 'kanban' } = {
+const DEFAULT_SETTINGS: DesignSystem & { 
+  language: AppLanguage; 
+  onboardingCompleted: string; 
+  updateChannel: string; 
+  taskViewMode: 'list' | 'kanban'; 
+  projectViewMode: 'list' | 'kanban';
+  glassOpacity?: string;
+  glassBlur?: string;
+  spacingScale?: 'compact' | 'comfortable';
+  animationsEnabled?: 'true' | 'false';
+  sidebarOpacity?: string;
+  cardRadius?: string;
+  fontScale?: string;
+  autoBackupEnabled?: 'true' | 'false';
+  autoBackupIntervalHours?: '6' | '12' | '24' | '48';
+  backupRetentionDays?: '1' | '3' | '7' | '14' | '30';
+  lastAutoBackupTime?: string;
+} = {
   accentColor: '#3bd2ff',
   glassTint: 'purple',
   gradientStart: '#007dff',
@@ -152,7 +171,18 @@ const DEFAULT_SETTINGS: DesignSystem & { language: AppLanguage; onboardingComple
   onboardingCompleted: 'false',
   updateChannel: 'stable',
   taskViewMode: 'list',
-  projectViewMode: 'list'
+  projectViewMode: 'list',
+  glassOpacity: '0.015',
+  glassBlur: '36',
+  spacingScale: 'comfortable',
+  animationsEnabled: 'true',
+  sidebarOpacity: '0.03',
+  cardRadius: '18',
+  fontScale: '1.0',
+  autoBackupEnabled: 'true',
+  autoBackupIntervalHours: '12',
+  backupRetentionDays: '3',
+  lastAutoBackupTime: ''
 };
 
 export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -162,8 +192,9 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [notes, setNotes] = useState<NoteItem[]>([]);
   const [prompts, setPrompts] = useState<PromptItem[]>([]);
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
-  const [settings, setSettings] = useState<DesignSystem & { language: AppLanguage; onboardingCompleted: string; updateChannel: string; taskViewMode: 'list' | 'kanban'; projectViewMode: 'list' | 'kanban' }>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<any>(DEFAULT_SETTINGS);
   const [backups, setBackups] = useState<BackupItem[]>([]);
+  const [dbPath, setDbPath] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   
   // UI States
@@ -237,6 +268,10 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             ...prev,
             ...loadedSettings
           }));
+        }
+
+        if (data.dbPath) {
+          setDbPath(data.dbPath);
         }
 
         // Fetch backups list
@@ -554,7 +589,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
-  const updateSettings = async (key: keyof (DesignSystem & { language: AppLanguage; onboardingCompleted: string; updateChannel: string }), value: any) => {
+  const updateSettings = async (key: keyof (DesignSystem & { language: AppLanguage; onboardingCompleted: string; updateChannel: string; taskViewMode?: 'list' | 'kanban'; projectViewMode?: 'list' | 'kanban'; enableGitIntegration?: string; gitPath?: string; gitUsername?: string; gitEmail?: string }), value: any) => {
     const updated = {
       ...settings,
       [key]: value
@@ -598,6 +633,21 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
+  const cleanAutoBackups = async () => {
+    if (window.api) {
+      try {
+        const result = await window.api.cleanAutoBackups();
+        const backupsList = await window.api.getBackups();
+        setBackups(backupsList || []);
+        return result;
+      } catch (err: any) {
+        console.error('Failed to clean auto backups', err);
+        return { success: false, deletedCount: 0 };
+      }
+    }
+    return { success: false, deletedCount: 0 };
+  };
+
   const resetDatabase = async () => {
     setTasks([]);
     setProjects([]);
@@ -634,6 +684,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       activityLogs,
       settings,
       backups,
+      dbPath,
       filters,
       currentView,
       selectedProjectViewId,
@@ -671,6 +722,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       triggerBackup,
       restoreFromBackup,
       deleteBackup,
+      cleanAutoBackups,
       resetDatabase,
       loadAllFromDB,
       toast,

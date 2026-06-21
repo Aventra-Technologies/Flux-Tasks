@@ -115,6 +115,21 @@ export interface DesignSystem {
   glassPreset: GlassPreset;
   taskViewMode?: 'list' | 'kanban';
   projectViewMode?: 'list' | 'kanban';
+  
+  // New Appearance settings
+  glassOpacity?: string;
+  glassBlur?: string;
+  spacingScale?: 'compact' | 'comfortable';
+  animationsEnabled?: 'true' | 'false';
+  sidebarOpacity?: string;
+  cardRadius?: string;
+  fontScale?: string;
+
+  // Auto Backup settings
+  autoBackupEnabled?: 'true' | 'false';
+  autoBackupIntervalHours?: '6' | '12' | '24' | '48';
+  backupRetentionDays?: '1' | '3' | '7' | '14' | '30';
+  lastAutoBackupTime?: string;
 }
 
 export interface BackupItem {
@@ -123,6 +138,7 @@ export interface BackupItem {
   type: 'auto' | 'manual';
   taskCount: number;
   projectCount: number;
+  sizeBytes?: number;
 }
 
 export interface ElectronAPI {
@@ -133,19 +149,8 @@ export interface ElectronAPI {
     notes: NoteItem[];
     prompts: PromptItem[];
     activityLogs: any[];
-    settings: {
-      accentColor: string;
-      glassTint: string;
-      gradientStart: string;
-      gradientEnd: string;
-      bgStyle: string;
-      glassPreset: string;
-      language: string;
-      onboardingCompleted: string;
-      updateChannel: string;
-      taskViewMode: string;
-      projectViewMode: string;
-    };
+    settings: Record<string, string>;
+    dbPath: string;
   }>;
   saveTask: (task: Task) => Promise<{ success: boolean }>;
   deleteTask: (id: string) => Promise<{ success: boolean }>;
@@ -163,6 +168,8 @@ export interface ElectronAPI {
   createBackup: (type: 'auto' | 'manual') => Promise<BackupItem>;
   restoreBackup: (fileName: string) => Promise<boolean>;
   deleteBackup: (fileName: string) => Promise<{ success: boolean }>;
+  getDbPath: () => Promise<string>;
+  cleanAutoBackups: () => Promise<{ success: boolean; deletedCount: number }>;
   saveAttachment: (sourcePath: string, fileName: string) => Promise<{ success: boolean; path?: string; error?: string }>;
   openAttachment: (filePath?: string) => Promise<{ success: boolean; error?: string }>;
   selectFile: (options?: any) => Promise<string | null>;
@@ -221,6 +228,8 @@ export interface ElectronAPI {
     push: (localPath: string) => Promise<{ success: boolean; output?: string; error?: string }>;
     commit: (localPath: string, message: string) => Promise<{ success: boolean; output?: string; error?: string }>;
     tag: (localPath: string, tagName: string, message?: string) => Promise<{ success: boolean; output?: string; error?: string }>;
+    pushTag: (localPath: string, tagName: string) => Promise<{ success: boolean; output?: string; error?: string }>;
+    copyFile: (sourcePath: string, destDirectory: string) => Promise<{ success: boolean; destPath?: string; error?: string }>;
     openFolder: (localPath: string) => Promise<{ success: boolean; error?: string }>;
     openTerminal: (localPath: string) => Promise<{ success: boolean; error?: string }>;
   };

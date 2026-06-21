@@ -282,7 +282,7 @@ export const TaskListView: React.FC = () => {
         
         <div className="flex items-center gap-3">
           {/* Project View / Git View switcher */}
-          {selectedProjectViewId && (
+          {selectedProjectViewId && settings.enableGitIntegration !== 'false' && (
             <div className="flex items-center gap-1 bg-white/[0.03] border border-white/5 rounded-lg p-0.5 text-xs text-slate-400">
               <button
                 onClick={() => setProjectTab('tasks')}

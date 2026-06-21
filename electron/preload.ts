@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld('api', {
   createBackup: (type: 'auto' | 'manual') => ipcRenderer.invoke('backup:create', type),
   restoreBackup: (fileName: string) => ipcRenderer.invoke('backup:restore', fileName),
   deleteBackup: (fileName: string) => ipcRenderer.invoke('backup:delete', fileName),
+  getDbPath: () => ipcRenderer.invoke('db:getPath'),
+  cleanAutoBackups: () => ipcRenderer.invoke('backup:cleanAuto'),
 
   // Attachments
   saveAttachment: (sourcePath: string, fileName: string) => ipcRenderer.invoke('attachment:save', sourcePath, fileName),
@@ -86,6 +88,8 @@ contextBridge.exposeInMainWorld('api', {
     push: (localPath: string) => ipcRenderer.invoke('git:push', localPath),
     commit: (localPath: string, message: string) => ipcRenderer.invoke('git:commit', localPath, message),
     tag: (localPath: string, tagName: string, message?: string) => ipcRenderer.invoke('git:tag', localPath, tagName, message),
+    pushTag: (localPath: string, tagName: string) => ipcRenderer.invoke('git:pushTag', localPath, tagName),
+    copyFile: (sourcePath: string, destDirectory: string) => ipcRenderer.invoke('git:copyFile', sourcePath, destDirectory),
     openFolder: (localPath: string) => ipcRenderer.invoke('git:openFolder', localPath),
     openTerminal: (localPath: string) => ipcRenderer.invoke('git:openTerminal', localPath)
   }

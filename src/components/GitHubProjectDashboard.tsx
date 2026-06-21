@@ -28,6 +28,11 @@ export const GitHubProjectDashboard: React.FC<GitHubProjectDashboardProps> = ({ 
   const [commitMessage, setCommitMessage] = useState('');
   const [tagName, setTagName] = useState('');
   const [tagMessage, setTagMessage] = useState('');
+  const [releaseTitle, setReleaseTitle] = useState('');
+  const [isPrerelease, setIsPrerelease] = useState(false);
+  const [isDraft, setIsDraft] = useState(false);
+  const [releaseFiles, setReleaseFiles] = useState<string[]>([]);
+  const [commitFiles, setCommitFiles] = useState<string[]>([]);
 
   // Dropdown for linking local tasks to issues
   const [linkingIssueNumber, setLinkingIssueNumber] = useState<number | null>(null);
@@ -54,9 +59,18 @@ export const GitHubProjectDashboard: React.FC<GitHubProjectDashboardProps> = ({ 
       openBrowser: 'Open in Browser',
       commitMsgPlaceholder: 'Enter commit message...',
       commitBtn: 'Create Commit',
+      selectCommitFilesBtn: 'Attach Files to Commit',
+      commitPushBtn: 'Commit & Push to GitHub',
+      localCommitOnlyBtn: 'Commit Locally',
       tagNamePlaceholder: 'v1.0.0...',
-      tagMsgPlaceholder: 'Tag message (optional)...',
+      tagMsgPlaceholder: 'Tag message / release notes (optional)...',
       createTagBtn: 'Create Tag',
+      releaseTitlePlaceholder: 'Release title (optional)...',
+      draftLabel: 'Save as Draft',
+      prereleaseLabel: 'Set as Pre-release',
+      selectFilesBtn: 'Attach Release Files',
+      createReleaseBtn: 'Publish Release on GitHub',
+      localTagOnlyBtn: 'Create Tag Locally',
       pullBtn: 'Git Pull',
       pushBtn: 'Git Push',
       openFolder: 'Open Folder',
@@ -98,9 +112,18 @@ export const GitHubProjectDashboard: React.FC<GitHubProjectDashboardProps> = ({ 
       openBrowser: 'Открыть в браузере',
       commitMsgPlaceholder: 'Введите сообщение коммита...',
       commitBtn: 'Создать коммит',
+      selectCommitFilesBtn: 'Прикрепить файлы к коммиту',
+      commitPushBtn: 'Закоммитить и отправить на GitHub',
+      localCommitOnlyBtn: 'Создать локальный коммит',
       tagNamePlaceholder: 'v1.0.0...',
-      tagMsgPlaceholder: 'Описание тега (необязательно)...',
+      tagMsgPlaceholder: 'Описание тега / описание релиза (необязательно)...',
       createTagBtn: 'Создать тег',
+      releaseTitlePlaceholder: 'Название релиза (необязательно)...',
+      draftLabel: 'Сохранить как черновик',
+      prereleaseLabel: 'Предварительный релиз (Pre-release)',
+      selectFilesBtn: 'Прикрепить файлы к релизу',
+      createReleaseBtn: 'Опубликовать релиз на GitHub',
+      localTagOnlyBtn: 'Создать тег локально',
       pullBtn: 'Git Pull (Стянуть)',
       pushBtn: 'Git Push (Отправить)',
       openFolder: 'Открыть папку',
@@ -142,9 +165,18 @@ export const GitHubProjectDashboard: React.FC<GitHubProjectDashboardProps> = ({ 
       openBrowser: 'Відкрити в браузері',
       commitMsgPlaceholder: 'Введіть повідомлення коміту...',
       commitBtn: 'Створити коміт',
+      selectCommitFilesBtn: 'Додати файли до коміту',
+      commitPushBtn: 'Закомітити та відправити на GitHub',
+      localCommitOnlyBtn: 'Створити локальний коміт',
       tagNamePlaceholder: 'v1.0.0...',
-      tagMsgPlaceholder: 'Опис тегу (необов\'язково)...',
+      tagMsgPlaceholder: 'Опис тегу / опис релізу (необов\'язково)...',
       createTagBtn: 'Створити тег',
+      releaseTitlePlaceholder: 'Назва релізу (необов\'язково)...',
+      draftLabel: 'Зберегти як чернетку',
+      prereleaseLabel: 'Попередній реліз (Pre-release)',
+      selectFilesBtn: 'Додати файли до релізу',
+      createReleaseBtn: 'Опублікувати реліз на GitHub',
+      localTagOnlyBtn: 'Створити тег локально',
       pullBtn: 'Git Pull (Стягнути)',
       pushBtn: 'Git Push (Відправити)',
       openFolder: 'Відкрити папку',
@@ -311,6 +343,177 @@ export const GitHubProjectDashboard: React.FC<GitHubProjectDashboardProps> = ({ 
         loadGitStatus();
       } else {
         showToast(res.error || 'Git operation failed', 'error');
+      }
+    } catch (e: any) {
+      showToast(e.message, 'error');
+    } finally {
+      setGitActionLoading(null);
+    }
+  };
+
+  const handleSelectCommitFiles = async () => {
+    if (!window.api) return;
+    try {
+      const paths = await window.api.selectFile({
+        properties: ['openFile', 'multiSelections'],
+        filters: [
+          { name: 'All Files', extensions: ['*'] }
+        ]
+      });
+      if (paths) {
+        const pathList = Array.isArray(paths) ? paths : [paths];
+        setCommitFiles(prev => {
+          const newPaths = pathList.filter(p => !prev.includes(p));
+          return [...prev, ...newPaths];
+        });
+      }
+    } catch (e: any) {
+      showToast(e.message, 'error');
+    }
+  };
+
+  const handleCreateCommit = async (shouldPush: boolean) => {
+    if (!commitMessage.trim()) {
+      showToast(lang === 'ru' ? 'Введите сообщение коммита' : 'Enter commit message', 'error');
+      return;
+    }
+
+    setGitActionLoading('commit');
+    try {
+      // 1. Copy all selected files to the project repository folder
+      if (commitFiles.length > 0) {
+        showToast(lang === 'ru' ? 'Копирование файлов в проект...' : 'Copying files to project...', 'info');
+        for (const filePath of commitFiles) {
+          const copyRes = await window.api!.git.copyFile(filePath, project.localPath!);
+          if (!copyRes.success) {
+            throw new Error(lang === 'ru' ? `Не удалось скопировать ${filePath}: ${copyRes.error}` : `Failed to copy ${filePath}: ${copyRes.error}`);
+          }
+        }
+      }
+
+      // 2. Commit the changes
+      showToast(lang === 'ru' ? 'Создание коммита...' : 'Creating commit...', 'info');
+      const commitRes = await window.api!.git.commit(project.localPath!, commitMessage);
+      if (!commitRes.success) {
+        throw new Error(lang === 'ru' ? `Не удалось закоммитить: ${commitRes.error}` : `Failed to commit: ${commitRes.error}`);
+      }
+
+      // 3. Push to GitHub if requested
+      if (shouldPush) {
+        showToast(lang === 'ru' ? 'Отправка коммитов в GitHub...' : 'Pushing commits to GitHub...', 'info');
+        const pushRes = await window.api!.git.push(project.localPath!);
+        if (!pushRes.success) {
+          throw new Error(lang === 'ru' ? `Не удалось отправить изменения: ${pushRes.error}` : `Failed to push changes: ${pushRes.error}`);
+        }
+      }
+
+      showToast(lang === 'ru' ? 'Коммит успешно создан!' : 'Commit created successfully!', 'success');
+      
+      // Clear inputs
+      setCommitMessage('');
+      setCommitFiles([]);
+      loadGitStatus();
+    } catch (e: any) {
+      showToast(e.message, 'error');
+    } finally {
+      setGitActionLoading(null);
+    }
+  };
+
+  const handleSelectFiles = async () => {
+    if (!window.api) return;
+    try {
+      const paths = await window.api.selectFile({
+        properties: ['openFile', 'multiSelections'],
+        filters: [
+          { name: 'All Files', extensions: ['*'] }
+        ]
+      });
+      if (paths) {
+        const pathList = Array.isArray(paths) ? paths : [paths];
+        setReleaseFiles(prev => {
+          const newPaths = pathList.filter(p => !prev.includes(p));
+          return [...prev, ...newPaths];
+        });
+      }
+    } catch (e: any) {
+      showToast(e.message, 'error');
+    }
+  };
+
+  const handleCreateGitHubRelease = async () => {
+    if (!tagName.trim()) {
+      showToast(lang === 'ru' ? 'Введите имя тега' : 'Enter tag name', 'error');
+      return;
+    }
+    if (!project.githubOwner || !project.githubRepo) {
+      showToast(lang === 'ru' ? 'Проект не связан с репозиторием GitHub' : 'Project is not linked to GitHub', 'error');
+      return;
+    }
+    
+    setGitActionLoading('githubRelease');
+    try {
+      // 1. Create local tag
+      showToast(lang === 'ru' ? 'Создание локального тега...' : 'Creating local tag...', 'info');
+      const tagRes = await window.api!.git.tag(project.localPath!, tagName, tagMessage);
+      if (!tagRes.success) {
+        showToast(`${lang === 'ru' ? 'Инфо о теге:' : 'Tag info:'} ${tagRes.error || tagRes.output}`, 'info');
+      }
+
+      // 2. Push tag to GitHub
+      showToast(lang === 'ru' ? 'Отправка тега в GitHub...' : 'Pushing tag to GitHub...', 'info');
+      const pushRes = await window.api!.git.pushTag(project.localPath!, tagName);
+      if (!pushRes.success) {
+        throw new Error(lang === 'ru' ? `Не удалось отправить тег: ${pushRes.error}` : `Failed to push tag: ${pushRes.error}`);
+      }
+
+      // 3. Create Release on GitHub
+      showToast(lang === 'ru' ? 'Создание релиза на GitHub...' : 'Creating release on GitHub...', 'info');
+      const releaseRes = await window.api!.github.createRelease(project.githubOwner, project.githubRepo, {
+        tag_name: tagName,
+        name: releaseTitle.trim() || tagName,
+        body: tagMessage,
+        draft: isDraft,
+        prerelease: isPrerelease
+      });
+
+      if (!releaseRes.success || !releaseRes.release) {
+        throw new Error(lang === 'ru' ? `Не удалось создать релиз: ${releaseRes.error}` : `Failed to create release: ${releaseRes.error}`);
+      }
+
+      const releaseId = releaseRes.release.id;
+
+      // 4. Upload Attached Files
+      if (releaseFiles.length > 0) {
+        for (const filePath of releaseFiles) {
+          const fileName = filePath.split(/[\\/]/).pop() || 'asset';
+          showToast(`${lang === 'ru' ? 'Загрузка файла:' : 'Uploading:'} ${fileName}...`, 'info');
+          const uploadRes = await window.api!.github.uploadReleaseAsset(
+            project.githubOwner,
+            project.githubRepo,
+            releaseId,
+            filePath,
+            fileName
+          );
+          if (!uploadRes.success) {
+            showToast(`${lang === 'ru' ? 'Не удалось загрузить' : 'Failed to upload'} ${fileName}: ${uploadRes.error}`, 'error');
+          }
+        }
+      }
+
+      showToast(lang === 'ru' ? 'Релиз успешно создан на GitHub!' : 'Release successfully created on GitHub!', 'success');
+      
+      // Clear fields
+      setTagName('');
+      setTagMessage('');
+      setReleaseTitle('');
+      setReleaseFiles([]);
+      setIsDraft(false);
+      setIsPrerelease(false);
+      
+      loadGitStatus();
+      if (isGitHubConnected && isGitHubOnline) {
+        loadDashboardData();
       }
     } catch (e: any) {
       showToast(e.message, 'error');
@@ -724,36 +927,98 @@ export const GitHubProjectDashboard: React.FC<GitHubProjectDashboardProps> = ({ 
 
                 {/* Git Commit action form */}
                 <div className="glass-card p-5 space-y-3.5">
-                  <h3 className="text-xs font-bold text-white uppercase tracking-wider">{lang === 'ru' ? 'Сделать коммит' : 'Create Git Commit'}</h3>
-                  <div className="space-y-3">
-                    <input 
-                      type="text"
-                      placeholder={t.commitMsgPlaceholder}
-                      value={commitMessage}
-                      onChange={(e) => setCommitMessage(e.target.value)}
-                      className="w-full py-2 px-3 text-xs rounded-xl border border-white/[0.08] bg-black/45 text-white placeholder-slate-500 focus:outline-none focus:border-flux-azure focus:ring-1 focus:ring-flux-azure/30"
-                    />
-                    <button
-                      disabled={!commitMessage.trim() || gitActionLoading !== null}
-                      onClick={() => triggerGitAction('commit', () => {
-                        const msg = commitMessage;
-                        setCommitMessage('');
-                        return window.api!.git.commit(project.localPath!, msg);
-                      })}
-                      className="py-1.5 px-4 rounded-xl bg-gradient-to-r from-flux-blue to-flux-indigo text-white text-xs font-bold cursor-pointer active:scale-95 transition-all shadow-[0_4px_12px_rgba(91,92,255,0.15)] hover:shadow-[0_6px_18px_rgba(91,92,255,0.25)] disabled:opacity-50 flex items-center gap-1.5"
-                    >
-                      <Icons.Check className="w-4 h-4" />
-                      <span>{t.commitBtn}</span>
-                    </button>
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                    {lang === 'ru' ? 'Создать коммит' : lang === 'uk' ? 'Створити коміт' : 'Create Git Commit'}
+                  </h3>
+                  <div className="space-y-3.5">
+                    {/* Commit Message */}
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
+                        {lang === 'ru' ? 'Сообщение коммита' : lang === 'uk' ? 'Повідомлення коміту' : 'Commit Message'}
+                      </label>
+                      <input 
+                        type="text"
+                        placeholder={t.commitMsgPlaceholder}
+                        value={commitMessage}
+                        onChange={(e) => setCommitMessage(e.target.value)}
+                        className="w-full py-2 px-3 text-xs rounded-xl border border-white/[0.08] bg-black/45 text-white placeholder-slate-500 focus:outline-none focus:border-flux-azure focus:ring-1 focus:ring-flux-azure/30"
+                      />
+                    </div>
+
+                    {/* File Attachment Area for Commit */}
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
+                        {lang === 'ru' ? 'Добавить файлы в коммит' : lang === 'uk' ? 'Додати файли до коміту' : 'Files to Commit'}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleSelectCommitFiles}
+                        className="w-full py-2 rounded-xl bg-white/5 border border-dashed border-white/10 hover:border-indigo-500/50 hover:bg-white/[0.08] text-slate-300 text-xs font-semibold cursor-pointer active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                      >
+                        <Icons.Paperclip className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>{t.selectCommitFilesBtn}</span>
+                      </button>
+
+                      {commitFiles.length > 0 && (
+                        <div className="space-y-1.5 mt-2 bg-black/20 p-2 rounded-xl border border-white/5 max-h-32 overflow-y-auto">
+                          {commitFiles.map((fPath, idx) => {
+                            const name = fPath.split(/[\\/]/).pop();
+                            return (
+                              <div key={idx} className="flex items-center justify-between text-[10px] font-mono text-slate-300 bg-white/[0.02] p-1.5 rounded-lg border border-white/5">
+                                <span className="truncate mr-2 flex items-center gap-1">
+                                  <Icons.File className="w-3 h-3 text-slate-400" />
+                                  <span title={fPath}>{name}</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setCommitFiles(prev => prev.filter((_, i) => i !== idx))}
+                                  className="text-rose-400 hover:text-rose-300 transition-colors p-0.5 cursor-pointer"
+                                >
+                                  <Icons.X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex flex-col gap-2 pt-2 border-t border-white/5">
+                      <button
+                        disabled={!commitMessage.trim() || gitActionLoading !== null}
+                        onClick={() => handleCreateCommit(true)}
+                        className="w-full py-2 rounded-xl bg-gradient-to-r from-flux-blue to-flux-indigo text-white text-xs font-bold cursor-pointer active:scale-95 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-[0_4px_12px_rgba(91,92,255,0.15)] hover:shadow-[0_6px_18px_rgba(91,92,255,0.25)]"
+                      >
+                        {gitActionLoading === 'commit' ? (
+                          <Icons.Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Icons.Send className="w-4 h-4" />
+                        )}
+                        <span>{t.commitPushBtn}</span>
+                      </button>
+
+                      <button
+                        disabled={!commitMessage.trim() || gitActionLoading !== null}
+                        onClick={() => handleCreateCommit(false)}
+                        className="w-full py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white text-xs font-bold cursor-pointer active:scale-95 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      >
+                        <Icons.Check className="w-4 h-4 text-slate-400" />
+                        <span>{t.localCommitOnlyBtn}</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Tag creation form */}
+              {/* Tag & GitHub Release creation form */}
               <div className="space-y-4">
                 <div className="glass-card p-5 space-y-3.5">
-                  <h3 className="text-xs font-bold text-white uppercase tracking-wider">{lang === 'ru' ? 'Создать тег' : 'Create Git Tag'}</h3>
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                    {lang === 'ru' ? 'Создать тег и релиз' : lang === 'uk' ? 'Створити тег та реліз' : 'Create Tag & Release'}
+                  </h3>
                   <div className="space-y-3.5">
+                    {/* Tag name */}
                     <div className="space-y-1">
                       <label className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Tag Name</label>
                       <input 
@@ -764,30 +1029,127 @@ export const GitHubProjectDashboard: React.FC<GitHubProjectDashboardProps> = ({ 
                         className="w-full py-1.5 px-3 text-xs rounded-xl border border-white/[0.08] bg-black/45 text-white placeholder-slate-600 focus:outline-none focus:border-flux-azure"
                       />
                     </div>
+                    {/* Optional Release Title */}
                     <div className="space-y-1">
-                      <label className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Message</label>
+                      <label className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
+                        {lang === 'ru' ? 'Название релиза' : lang === 'uk' ? 'Назва релізу' : 'Release Title'}
+                      </label>
                       <input 
                         type="text"
-                        placeholder={t.tagMsgPlaceholder}
-                        value={tagMessage}
-                        onChange={(e) => setTagMessage(e.target.value)}
+                        placeholder={t.releaseTitlePlaceholder}
+                        value={releaseTitle}
+                        onChange={(e) => setReleaseTitle(e.target.value)}
                         className="w-full py-1.5 px-3 text-xs rounded-xl border border-white/[0.08] bg-black/45 text-white placeholder-slate-600 focus:outline-none focus:border-flux-azure"
                       />
                     </div>
-                    <button
-                      disabled={!tagName.trim() || gitActionLoading !== null}
-                      onClick={() => triggerGitAction('tag', () => {
-                        const tag = tagName;
-                        const msg = tagMessage;
-                        setTagName('');
-                        setTagMessage('');
-                        return window.api!.git.tag(project.localPath!, tag, msg);
-                      })}
-                      className="w-full py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white text-xs font-bold cursor-pointer active:scale-95 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
-                    >
-                      <Icons.Tag className="w-4 h-4" />
-                      <span>{t.createTagBtn}</span>
-                    </button>
+                    {/* Release Description / Tag message */}
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
+                        {lang === 'ru' ? 'Описание релиза / Сообщение тега' : lang === 'uk' ? 'Опис релізу / Повідомлення тегу' : 'Description / Tag Message'}
+                      </label>
+                      <textarea 
+                        rows={2}
+                        placeholder={t.tagMsgPlaceholder}
+                        value={tagMessage}
+                        onChange={(e) => setTagMessage(e.target.value)}
+                        className="w-full py-1.5 px-3 text-xs rounded-xl border border-white/[0.08] bg-black/45 text-white placeholder-slate-600 focus:outline-none focus:border-flux-azure resize-none"
+                      />
+                    </div>
+
+                    {/* File Attachment Area */}
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
+                        {lang === 'ru' ? 'Файлы для релиза' : lang === 'uk' ? 'Файли для релізу' : 'Release Assets (Files)'}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleSelectFiles}
+                        className="w-full py-2 rounded-xl bg-white/5 border border-dashed border-white/10 hover:border-indigo-500/50 hover:bg-white/[0.08] text-slate-300 text-xs font-semibold cursor-pointer active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                      >
+                        <Icons.Paperclip className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>{t.selectFilesBtn}</span>
+                      </button>
+
+                      {releaseFiles.length > 0 && (
+                        <div className="space-y-1.5 mt-2 bg-black/20 p-2 rounded-xl border border-white/5 max-h-32 overflow-y-auto">
+                          {releaseFiles.map((fPath, idx) => {
+                            const name = fPath.split(/[\\/]/).pop();
+                            return (
+                              <div key={idx} className="flex items-center justify-between text-[10px] font-mono text-slate-300 bg-white/[0.02] p-1.5 rounded-lg border border-white/5">
+                                <span className="truncate mr-2 flex items-center gap-1">
+                                  <Icons.File className="w-3 h-3 text-slate-400" />
+                                  <span title={fPath}>{name}</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setReleaseFiles(prev => prev.filter((_, i) => i !== idx))}
+                                  className="text-rose-400 hover:text-rose-300 transition-colors p-0.5 cursor-pointer"
+                                >
+                                  <Icons.X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* GitHub options (prerelease & draft checkboxes), shown only if project is linked to GitHub */}
+                    {isLinked && (
+                      <div className="flex gap-4 pt-1.5 text-xs text-slate-300">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input 
+                            type="checkbox"
+                            checked={isDraft}
+                            onChange={(e) => setIsDraft(e.target.checked)}
+                            className="w-4 h-4 rounded border-white/10 bg-black/45 text-indigo-500 focus:ring-0 cursor-pointer"
+                          />
+                          <span>{t.draftBadge || 'Draft'}</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input 
+                            type="checkbox"
+                            checked={isPrerelease}
+                            onChange={(e) => setIsPrerelease(e.target.checked)}
+                            className="w-4 h-4 rounded border-white/10 bg-black/45 text-indigo-500 focus:ring-0 cursor-pointer"
+                          />
+                          <span>{t.prereleaseBadge || 'Prerelease'}</span>
+                        </label>
+                      </div>
+                    )}
+
+                    {/* Action buttons */}
+                    <div className="flex flex-col gap-2 pt-2 border-t border-white/5">
+                      {isLinked && isGitHubConnected && isGitHubOnline && (
+                        <button
+                          disabled={!tagName.trim() || gitActionLoading !== null}
+                          onClick={handleCreateGitHubRelease}
+                          className="w-full py-2 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white text-xs font-bold cursor-pointer active:scale-95 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-[0_4px_12px_rgba(139,92,246,0.2)]"
+                        >
+                          {gitActionLoading === 'githubRelease' ? (
+                            <Icons.Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Icons.Rocket className="w-4 h-4" />
+                          )}
+                          <span>{t.createReleaseBtn}</span>
+                        </button>
+                      )}
+                      
+                      <button
+                        disabled={!tagName.trim() || gitActionLoading !== null}
+                        onClick={() => triggerGitAction('tag', () => {
+                          const tag = tagName;
+                          const msg = tagMessage;
+                          setTagName('');
+                          setTagMessage('');
+                          return window.api!.git.tag(project.localPath!, tag, msg);
+                        })}
+                        className="w-full py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white text-xs font-bold cursor-pointer active:scale-95 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      >
+                        <Icons.Tag className="w-4 h-4 text-slate-400" />
+                        <span>{t.localTagOnlyBtn}</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

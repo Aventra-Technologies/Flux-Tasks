@@ -49,6 +49,70 @@ function WorkspaceApp() {
   const lang = settings.language;
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
+  // Sync settings with CSS variables dynamically
+  React.useEffect(() => {
+    const root = document.documentElement;
+
+    // Apply main accent color
+    const accent = settings.accentColor || '#3bd2ff';
+    root.style.setProperty('--accent', accent);
+
+    // Apply gradient start and end
+    const start = settings.gradientStart || '#007dff';
+    const end = settings.gradientEnd || '#ff52df';
+    root.style.setProperty('--accent-gradient', `linear-gradient(135deg, ${start} 0%, ${end} 100%)`);
+
+    // Apply glass opacity & bg
+    const glassOp = settings.glassOpacity || '0.015';
+    root.style.setProperty('--glass-opacity', glassOp);
+    root.style.setProperty('--glass-bg', `rgba(255, 255, 255, ${glassOp})`);
+
+    // Apply glass blur
+    const blur = settings.glassBlur || '36';
+    root.style.setProperty('--glass-blur', `${blur}px`);
+
+    // Apply glass border opacity based on glass intensity or preset
+    root.style.setProperty('--glass-border', `rgba(255, 255, 255, 0.02)`);
+
+    // Apply sidebar opacity
+    const sidebarOp = settings.sidebarOpacity || '0.03';
+    root.style.setProperty('--sidebar-opacity', sidebarOp);
+
+    // Apply card radius
+    const radius = settings.cardRadius || '18';
+    root.style.setProperty('--radius-card', `${radius}px`);
+
+    // Apply font scale
+    const fontScale = settings.fontScale || '1.0';
+    root.style.setProperty('--font-scale', fontScale);
+
+    // Apply spacing scale
+    const isCompact = settings.spacingScale === 'compact';
+    root.style.setProperty('--spacing-scale', isCompact ? '0.75' : '1.0');
+
+    // Apply background colors to root
+    if (settings.bgStyle === 'deep-noir') {
+      root.style.setProperty('--bg-base', '#010103');
+      root.style.setProperty('--bg-layer', '#05050a');
+    } else if (settings.bgStyle === 'aurora') {
+      root.style.setProperty('--bg-base', '#020617');
+      root.style.setProperty('--bg-layer', '#0f172a');
+    } else if (settings.bgStyle === 'crystal-lake') {
+      root.style.setProperty('--bg-base', '#0b132b');
+      root.style.setProperty('--bg-layer', '#1c2541');
+    } else { // orbit / default
+      root.style.setProperty('--bg-base', '#020512');
+      root.style.setProperty('--bg-layer', '#071126');
+    }
+
+    // Apply animations settings class
+    if (settings.animationsEnabled === 'false') {
+      root.classList.add('no-animations');
+    } else {
+      root.classList.remove('no-animations');
+    }
+  }, [settings]);
+
   // Recovery & Update states
   const [crashedOnStartup, setCrashedOnStartup] = useState(false);
   const [repairLogs, setRepairLogs] = useState<string[]>([]);
@@ -383,33 +447,34 @@ function WorkspaceApp() {
       );
     }
 
-    let col1 = 'from-[#2d5ff5]/12'; // Softer indigo-blue
-    let col2 = 'from-[#a855f7]/8';  // Softer purple
-    let col3 = 'from-[#0ea5e9]/6';  // Softer sky blue
+    let glowStyle1 = {};
+    let glowStyle2 = {};
+    let glowStyle3 = {};
 
     if (settings.bgStyle === 'aurora') {
-      col1 = 'from-teal-500/20';
-      col2 = 'from-emerald-400/15';
-      col3 = 'from-cyan-500/12';
+      glowStyle1 = { background: 'radial-gradient(circle, rgba(20,184,166,0.15) 0%, transparent 70%)' };
+      glowStyle2 = { background: 'radial-gradient(circle, rgba(52,211,153,0.12) 0%, transparent 70%)' };
+      glowStyle3 = { background: 'radial-gradient(circle, rgba(6,182,212,0.08) 0%, transparent 70%)' };
     } else if (settings.bgStyle === 'crystal-lake') {
-      col1 = 'from-blue-600/15';
-      col2 = 'from-indigo-500/12';
-      col3 = 'from-cyan-400/15';
-    } else if (settings.bgStyle === 'orbit') {
-      // Dynamic orbital colors matching user custom accent
-      col1 = `from-[${settings.gradientStart}]/15`;
-      col2 = `from-[${settings.gradientEnd}]/12`;
-      col3 = 'from-purple-500/10';
+      glowStyle1 = { background: 'radial-gradient(circle, rgba(37,99,235,0.15) 0%, transparent 70%)' };
+      glowStyle2 = { background: 'radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)' };
+      glowStyle3 = { background: 'radial-gradient(circle, rgba(34,211,238,0.1) 0%, transparent 70%)' };
+    } else { // orbit / default
+      const gStart = settings.gradientStart || '#007dff';
+      const gEnd = settings.gradientEnd || '#ff52df';
+      glowStyle1 = { background: `radial-gradient(circle, ${gStart}24 0%, transparent 70%)` }; // 24 = ~14% opacity
+      glowStyle2 = { background: `radial-gradient(circle, ${gEnd}1f 0%, transparent 70%)` };   // 1f = ~12% opacity
+      glowStyle3 = { background: 'radial-gradient(circle, rgba(168,85,247,0.08) 0%, transparent 70%)' };
     }
 
     return (
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         {/* Soft atmospheric background orbs */}
-        <div className={`absolute top-[-10%] left-[-10%] w-[60%] h-[60%] rounded-full bg-gradient-to-tr ${col1} to-transparent blur-[130px] animate-glow-slow-1`} />
-        <div className={`absolute bottom-[-10%] right-[-10%] w-[70%] h-[70%] rounded-full bg-gradient-to-tr ${col2} to-transparent blur-[150px] animate-glow-slow-2`} />
-        <div className={`absolute top-[30%] left-[25%] w-[40%] h-[40%] rounded-full bg-gradient-to-tr ${col3} to-transparent blur-[110px] opacity-70`} />
+        <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] rounded-full blur-[110px] animate-glow-slow-1" style={glowStyle1} />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[70%] h-[70%] rounded-full blur-[130px] animate-glow-slow-2" style={glowStyle2} />
+        <div className="absolute top-[30%] left-[25%] w-[40%] h-[40%] rounded-full blur-[90px] opacity-70" style={glowStyle3} />
 
-        {/* Dynamic, visually responsive high-fidelity tilted glass sheets replication from the brand banner */}
+        {/* Dynamic, visually responsive high-fidelity tilted glass sheets replication */}
         <div className="absolute right-[-150px] top-[10%] hidden xl:flex lg:flex-col items-center gap-0 pointer-events-none select-none opacity-25 mix-blend-screen scale-110">
           {/* Backmost card sheet with soft border */}
           <div className="w-[300px] h-[550px] rounded-[36px] border border-white/[0.015] bg-white/[0.002] shadow-[0_45px_100px_rgba(0,0,0,0.8)] transform rotate-[25deg] translate-y-[120px] -translate-x-[40px] backdrop-blur-[2px] transition-transform duration-1000" />
@@ -721,7 +786,7 @@ function WorkspaceApp() {
 
             ) : (
               /* STANDARD GENERAL TASKS VIEW (LIST OR KANBAN) */
-              selectedProjectViewId && projectTab === 'git' ? (
+              selectedProjectViewId && projectTab === 'git' && settings.enableGitIntegration !== 'false' ? (
                 <GitHubProjectDashboard projectId={selectedProjectViewId} />
               ) : selectedProjectViewId ? (
                 settings.projectViewMode === 'kanban' ? <KanbanBoard /> : <TaskListView />

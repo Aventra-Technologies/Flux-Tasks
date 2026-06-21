@@ -3,7 +3,7 @@ import * as Icons from 'lucide-react';
 import { useStore } from '../store';
 
 export const GitHubSettings: React.FC = () => {
-  const { settings, showToast } = useStore();
+  const { settings, updateSettings, showToast } = useStore();
   const lang = settings.language;
 
   const [isConnected, setIsConnected] = useState(false);
@@ -280,6 +280,83 @@ export const GitHubSettings: React.FC = () => {
       <div className="p-3 rounded-xl border border-white/5 bg-black/10 text-[10px] text-slate-500 flex items-start gap-2">
         <Icons.Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
         <span className="leading-relaxed">{t.infoText}</span>
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-white/5 my-5 pt-5" />
+
+      {/* Git Integration Toggle & Config Section */}
+      <div className="space-y-4">
+        <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+          <Icons.Sliders className="w-4 h-4 text-indigo-400" />
+          <span>{lang === 'ru' ? 'Настройки компонентов Git / GitHub' : lang === 'uk' ? 'Налаштування компонентів Git / GitHub' : 'Git / GitHub Components Settings'}</span>
+        </h3>
+
+        {/* Integration Toggle */}
+        <div className="flex items-center justify-between p-3 rounded-xl border border-white/5 bg-black/10">
+          <div className="space-y-0.5">
+            <span className="text-xs font-semibold text-white">
+              {lang === 'ru' ? 'Включить интеграцию Git / GitHub' : lang === 'uk' ? 'Увімкнути інтеграцію Git / GitHub' : 'Enable Git / GitHub Integration'}
+            </span>
+            <p className="text-[10px] text-slate-500">
+              {lang === 'ru' ? 'Включает или отключает отображение вкладок Git и панели репозитория в проектах.' : lang === 'uk' ? 'Вмикає або вимикає відображення вкладок Git та панелі репозиторію в проектах.' : 'Enables or disables Git tabs and repository dashboards inside projects.'}
+            </p>
+          </div>
+          <button
+            onClick={() => updateSettings('enableGitIntegration', settings.enableGitIntegration === 'false' ? 'true' : 'false')}
+            className={`w-10 h-5.5 rounded-full p-0.5 transition-colors duration-200 cursor-pointer ${
+              settings.enableGitIntegration !== 'false' ? 'bg-indigo-500' : 'bg-slate-700'
+            }`}
+          >
+            <div
+              className={`w-4.5 h-4.5 rounded-full bg-white transition-transform duration-200 ${
+                settings.enableGitIntegration !== 'false' ? 'translate-x-4.5' : 'translate-x-0'
+              }`}
+            />
+          </button>
+        </div>
+
+        {/* Git settings inputs, shown only if integration is enabled */}
+        {settings.enableGitIntegration !== 'false' && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-black/15 p-4 rounded-xl border border-white/5">
+            <div className="space-y-1">
+              <label className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
+                {lang === 'ru' ? 'Путь к Git' : lang === 'uk' ? 'Шлях до Git' : 'Git Path'}
+              </label>
+              <input
+                type="text"
+                placeholder="git"
+                value={settings.gitPath || 'git'}
+                onChange={(e) => updateSettings('gitPath', e.target.value)}
+                className="w-full py-1.5 px-3 text-xs rounded-xl border border-white/[0.08] bg-black/45 text-white placeholder-slate-600 focus:outline-none focus:border-flux-azure"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
+                {lang === 'ru' ? 'Имя пользователя (Git)' : lang === 'uk' ? 'Ім\'я користувача (Git)' : 'Git Username'}
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. John Doe"
+                value={settings.gitUsername || ''}
+                onChange={(e) => updateSettings('gitUsername', e.target.value)}
+                className="w-full py-1.5 px-3 text-xs rounded-xl border border-white/[0.08] bg-black/45 text-white placeholder-slate-600 focus:outline-none focus:border-flux-azure"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
+                {lang === 'ru' ? 'Email (Git)' : lang === 'uk' ? 'Email (Git)' : 'Git Email'}
+              </label>
+              <input
+                type="email"
+                placeholder="e.g. john@example.com"
+                value={settings.gitEmail || ''}
+                onChange={(e) => updateSettings('gitEmail', e.target.value)}
+                className="w-full py-1.5 px-3 text-xs rounded-xl border border-white/[0.08] bg-black/45 text-white placeholder-slate-600 focus:outline-none focus:border-flux-azure"
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

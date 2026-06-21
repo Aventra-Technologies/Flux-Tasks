@@ -635,18 +635,29 @@ export function copyAttachmentFile(sourcePath: string, fileName: string): string
 }
 
 // Backup & Restore
+export function getDatabasePath(): string {
+  return dbPath;
+}
+
+function getFormattedBackupFileName(type: 'auto' | 'manual'): string {
+  const now = new Date();
+  const YYYY = now.getFullYear();
+  const MM = String(now.getMonth() + 1).padStart(2, '0');
+  const DD = String(now.getDate()).padStart(2, '0');
+  const HH = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  return `backup_${YYYY}-${MM}-${DD}_${HH}-${mm}-${ss}_${type}.db`;
+}
+
 export function createBackupFile(type: 'auto' | 'manual' = 'manual'): BackupItem {
   const appData = getAppDataPath();
   const backupsDir = path.join(appData, 'backups');
   
   const timestamp = new Date().toISOString();
-  const fileDate = timestamp.replace(/:/g, '-');
-  const backupFileName = `backup_${fileDate}_${type}.db`;
+  const backupFileName = getFormattedBackupFileName(type);
   const destPath = path.join(backupsDir, backupFileName);
 
-  // SQLite database hot backup is as simple as copying the tasks.db file
-  // Wait! Since database sync is synchronous and we are between operations, copying the file is safe.
-  // Alternatively we can use a vacuum/backup API, but copyFileSync works great for this volume size.
   if (fs.existsSync(dbPath)) {
     fs.copyFileSync(dbPath, destPath);
   }
@@ -654,14 +665,76 @@ export function createBackupFile(type: 'auto' | 'manual' = 'manual'): BackupItem
   // Count active tasks and projects
   const taskCount = (getQuery('SELECT COUNT(*) as count FROM tasks') as any)?.count || 0;
   const projectCount = (getQuery('SELECT COUNT(*) as count FROM projects') as any)?.count || 0;
+  
+  let sizeBytes = 0;
+  try {
+    if (fs.existsSync(destPath)) {
+      sizeBytes = fs.statSync(destPath).size;
+    }
+  } catch (e) {}
 
   return {
     id: backupFileName,
     timestamp,
     type,
     taskCount,
-    projectCount
+    projectCount,
+    sizeBytes
   };
+}
+
+export function runBackupRetention(): number {
+  try {
+    const appData = getAppDataPath();
+    const backupsDir = path.join(appData, 'backups');
+    if (!fs.existsSync(backupsDir)) return 0;
+
+    // Load settings to find backupRetentionDays
+    const settings = loadSettings();
+    const retentionDays = parseInt(settings.backupRetentionDays ?? '3', 10);
+    const now = Date.now();
+
+    const files = fs.readdirSync(backupsDir);
+    let deletedCount = 0;
+
+    for (const file of files) {
+      if (file.startsWith('backup_') && file.endsWith('_auto.db')) {
+        const fullPath = path.join(backupsDir, file);
+        const parts = file.split('_');
+        
+        let timestampStr = '';
+        if (parts.length === 3) {
+          // Old format: backup_ISOString_auto.db
+          timestampStr = parts[1].replace(/-/g, ':');
+        } else if (parts.length >= 4) {
+          // New format: backup_YYYY-MM-DD_HH-mm-ss_auto.db
+          const dateStr = parts[1];
+          const timeStr = parts[2].replace(/-/g, ':');
+          timestampStr = `${dateStr}T${timeStr}`;
+        }
+
+        if (timestampStr) {
+          const backupDate = new Date(timestampStr);
+          if (!isNaN(backupDate.getTime())) {
+            const ageInMs = now - backupDate.getTime();
+            const ageInDays = ageInMs / (1000 * 60 * 60 * 24);
+            if (ageInDays > retentionDays) {
+              fs.unlinkSync(fullPath);
+              deletedCount++;
+            }
+          }
+        }
+      }
+    }
+
+    if (deletedCount > 0) {
+      console.log(`Backup retention: automatically deleted ${deletedCount} old auto backups.`);
+    }
+    return deletedCount;
+  } catch (err) {
+    console.error('Failed to run backup retention:', err);
+    return 0;
+  }
 }
 
 export function getBackupsList(): BackupItem[] {
@@ -676,18 +749,34 @@ export function getBackupsList(): BackupItem[] {
     if (file.startsWith('backup_') && file.endsWith('.db')) {
       const parts = file.split('_');
       if (parts.length >= 3) {
-        const dateStr = parts[1].replace(/-/g, ':');
-        const typePart = parts[2].split('.')[0];
-        const fullPath = path.join(backupsDir, file);
+        let timestamp = '';
+        let typePart = 'manual';
         
-        // Read database file stats or size, but we can query metadata by loading it or estimate it
-        // To be safe, we can just return stats or keep a list.
+        if (parts.length === 3) {
+          // Old format: backup_ISOString_type.db
+          timestamp = parts[1].replace(/-/g, ':');
+          typePart = parts[2].split('.')[0];
+        } else if (parts.length >= 4) {
+          // New format: backup_YYYY-MM-DD_HH-mm-ss_type.db
+          const dateStr = parts[1]; // YYYY-MM-DD
+          const timeStr = parts[2].replace(/-/g, ':'); // HH:mm:ss
+          timestamp = `${dateStr}T${timeStr}`;
+          typePart = parts[3].split('.')[0];
+        }
+
+        const fullPath = path.join(backupsDir, file);
+        let sizeBytes = 0;
+        try {
+          sizeBytes = fs.statSync(fullPath).size;
+        } catch (e) {}
+
         backups.push({
-          id: file, // we use filename as id
-          timestamp: dateStr,
+          id: file,
+          timestamp,
           type: typePart === 'auto' ? 'auto' : 'manual',
-          taskCount: 0, // Will be filled or calculated dynamically if restored, or left simple
-          projectCount: 0
+          taskCount: 0,
+          projectCount: 0,
+          sizeBytes
         });
       }
     }

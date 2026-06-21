@@ -11,7 +11,7 @@ import {
   loadSettings, saveSetting,
   clearAllDatabase, copyAttachmentFile,
   createBackupFile, getBackupsList, restoreBackupFile, deleteBackupFile,
-  loadAllActivityLogs
+  loadAllActivityLogs, getDatabasePath, runBackupRetention
 } from './database';
 import {
   checkForUpdates,
@@ -175,6 +175,61 @@ function createWindow() {
   });
 }
 
+let autoBackupTimer: NodeJS.Timeout | null = null;
+
+function setupAutoBackupTimer(intervalHours: number) {
+  if (autoBackupTimer) {
+    clearInterval(autoBackupTimer);
+  }
+  const intervalMs = intervalHours * 60 * 60 * 1000;
+  autoBackupTimer = setInterval(() => {
+    console.log('Auto backup timer triggered.');
+    checkAndRunAutoBackup();
+  }, intervalMs);
+}
+
+export function checkAndRunAutoBackup() {
+  try {
+    const settings = loadSettings();
+    const enabled = (settings.autoBackupEnabled ?? 'true') === 'true';
+    if (!enabled) return;
+
+    const intervalHours = parseInt(settings.autoBackupIntervalHours ?? '12', 10);
+    const lastBackupStr = settings.lastAutoBackupTime || '';
+    const lastBackupTime = lastBackupStr ? new Date(lastBackupStr).getTime() : 0;
+    const now = Date.now();
+
+    const hoursSinceLast = (now - lastBackupTime) / (1000 * 60 * 60);
+
+    if (!lastBackupStr || hoursSinceLast >= intervalHours) {
+      console.log(`Creating automatic backup... (last backup: ${lastBackupStr || 'never'})`);
+      const backupItem = createBackupFile('auto');
+      saveSetting('lastAutoBackupTime', new Date().toISOString());
+      console.log(`Auto backup created: ${backupItem.id}`);
+      
+      // Run retention immediately after creation
+      runBackupRetention();
+    }
+  } catch (err) {
+    console.error('Error during auto backup process:', err);
+  }
+}
+
+function initAutoBackupTimer() {
+  const settings = loadSettings();
+  const enabled = (settings.autoBackupEnabled ?? 'true') === 'true';
+  const intervalHours = parseInt(settings.autoBackupIntervalHours ?? '12', 10);
+  
+  if (autoBackupTimer) {
+    clearInterval(autoBackupTimer);
+    autoBackupTimer = null;
+  }
+  
+  if (enabled) {
+    setupAutoBackupTimer(intervalHours);
+  }
+}
+
 app.whenReady().then(() => {
   recoveryModeActive = initStartupCrashDetector();
 
@@ -199,6 +254,18 @@ app.whenReady().then(() => {
 
   checkStartupUpdates(recoveryModeActive);
   initDatabase();
+
+  // Run startup auto backup & retention checks
+  try {
+    checkAndRunAutoBackup();
+    runBackupRetention();
+  } catch (err) {
+    console.error('Failed to run startup backup routines', err);
+  }
+  
+  // Initialize auto backup schedule timer
+  initAutoBackupTimer();
+
   createWindow();
 
   app.on('activate', () => {
@@ -238,7 +305,20 @@ ipcMain.handle('db:loadAll', () => {
     onboardingCompleted: settingsRaw.onboardingCompleted || 'false',
     updateChannel: settingsRaw.updateChannel || 'stable',
     taskViewMode: settingsRaw.taskViewMode || 'list',
-    projectViewMode: settingsRaw.projectViewMode || 'list'
+    projectViewMode: settingsRaw.projectViewMode || 'list',
+    // New Appearance settings
+    glassOpacity: settingsRaw.glassOpacity || '0.015',
+    glassBlur: settingsRaw.glassBlur || '36',
+    spacingScale: settingsRaw.spacingScale || 'comfortable',
+    animationsEnabled: settingsRaw.animationsEnabled || 'true',
+    sidebarOpacity: settingsRaw.sidebarOpacity || '0.03',
+    cardRadius: settingsRaw.cardRadius || '18',
+    fontScale: settingsRaw.fontScale || '1.0',
+    // Auto Backup settings
+    autoBackupEnabled: settingsRaw.autoBackupEnabled || 'true',
+    autoBackupIntervalHours: settingsRaw.autoBackupIntervalHours || '12',
+    backupRetentionDays: settingsRaw.backupRetentionDays || '3',
+    lastAutoBackupTime: settingsRaw.lastAutoBackupTime || ''
   };
 
   return {
@@ -248,7 +328,8 @@ ipcMain.handle('db:loadAll', () => {
     notes: loadNotes(),
     prompts: loadPrompts(),
     activityLogs: loadAllActivityLogs(),
-    settings
+    settings,
+    dbPath: getDatabasePath()
   };
 });
 
@@ -306,7 +387,18 @@ ipcMain.handle('db:saveSettings', (event, settings) => {
   for (const [key, value] of Object.entries(settings)) {
     saveSetting(key, String(value));
   }
+  // Re-initialize the backup timer with new settings
+  initAutoBackupTimer();
   return { success: true };
+});
+
+ipcMain.handle('db:getPath', () => {
+  return getDatabasePath();
+});
+
+ipcMain.handle('backup:cleanAuto', () => {
+  const count = runBackupRetention();
+  return { success: true, deletedCount: count };
 });
 
 ipcMain.handle('db:resetDatabase', () => {
@@ -372,18 +464,19 @@ ipcMain.handle('attachment:open', async (event, filePath) => {
 });
 
 // IPC REGISTER - Dialogs
-ipcMain.handle('dialog:selectFile', async () => {
+ipcMain.handle('dialog:selectFile', async (event, options) => {
   if (!mainWindow) return null;
+  const props = options?.properties || ['openFile'];
   const result = await dialog.showOpenDialog(mainWindow, {
-    properties: ['openFile'],
-    filters: [
+    properties: props,
+    filters: options?.filters || [
       { name: 'All Files', extensions: ['*'] },
       { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'] },
       { name: 'Documents', extensions: ['pdf', 'txt', 'docx', 'log', 'zip'] }
     ]
   });
   if (result.canceled || result.filePaths.length === 0) return null;
-  return result.filePaths[0];
+  return props.includes('multiSelections') ? result.filePaths : result.filePaths[0];
 });
 
 ipcMain.handle('dialog:selectDirectory', async () => {
