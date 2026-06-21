@@ -1,0 +1,13 @@
+{
+  "version": "1.1.7",
+  "channel": "stable",
+  "updateType": "asar",
+  "asarUrl": "https://straniksss.github.io/Flux-Tasks/packages/stable/app.asar",
+  "packageUrl": "https://straniksss.github.io/Flux-Tasks/packages/stable/Flux Tasks Setup.exe",
+  "sha256": "27e742a1e41a48596a7e9d541c7e21f1a5871278cd64b3bf5b70d5e352af4822",
+  "size": 52083001,
+  "releaseNotes": [
+    "Bug Fix|Web Installer"
+  ],
+  "publishedAt": "2026-06-21T13:41:52.960Z"
+}
