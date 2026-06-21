@@ -17,7 +17,7 @@
 
 ---
 
-[Key Features](#-key-features) • [Tech Stack](#-technology-stack) • [Installation](#-getting-started) • [Development](#-development-workflow) • [OTA Updates & Releases](#-automated-releases--ota) • [Security & Privacy](#-privacy-by-design)
+[Key Features](#-key-features) • [Tech Stack](#-technology-stack) • [Installation](#-getting-started) • [OTA Updates & Releases](#-automated-releases--ota) • [Security & Privacy](#-privacy-by-design)
 
 </div>
 
@@ -126,47 +126,16 @@ All data resides safely on your disk. You own your files:
 
 ## ⚙️ Getting Started
 
-### Prerequisites
-* [Node.js](https://nodejs.org/) (v18.x or newer)
-* npm or yarn
+Installing Flux Tasks is quick and simple.
 
-### Installation
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/Straniksss/Flux-Tasks.git
-   cd Flux-Tasks
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
+1. **Download the Web Installer**:
+   Download the installer package directly: [Flux Tasks Web Setup (EXE)](https://github.com/Straniksss/Flux-Tasks/releases/download/installer-v1/Flux.Tasks.Web.Setup.exe)
+2. **Run Setup**:
+   Launch `Flux.Tasks.Web.Setup.exe` on your system. The installer will set up all dependencies and prepare the application shell.
+3. **Start Organizing**:
+   Open the app from your Desktop or Start Menu and begin managing your projects offline!
 
----
-
-## 💻 Development Workflow
-
-To run and build Flux Tasks in your local environment, use the following commands:
-
-* **Start Development Mode**:
-  ```bash
-  npm run dev
-  ```
-  *Launches the Vite dev server and opens the Electron app shell concurrently with hot-reloading.*
-
-* **Type-Check Code**:
-  ```bash
-  npm run lint
-  ```
-
-* **Compile Assets**:
-  * Build the React frontend: `npm run build:frontend`
-  * Bundle Electron processes: `npm run build:electron`
-
-* **Produce Installers (Windows)**:
-  ```bash
-  npm run build
-  ```
-  *Creates standalone NSIS Installers (`.exe`) and portable ZIP archives in the `release/` folder.*
+*Note: You can view all release assets, pre-releases, and alternative packages on the [GitHub Releases Page](https://github.com/Straniksss/Flux-Tasks/releases/tag/installer-v1).*
 
 ---
 
