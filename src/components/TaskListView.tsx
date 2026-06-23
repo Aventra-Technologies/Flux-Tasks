@@ -22,7 +22,8 @@ export const TaskListView: React.FC = () => {
   const lang = settings.language;
   const [openStatusDropdownId, setOpenStatusDropdownId] = useState<string | null>(null);
   const [dropdownTriggerRect, setDropdownTriggerRect] = useState<DOMRect | null>(null);
-  const [sortBy, setSortBy] = useState<'date' | 'priority'>('date');
+  const [sortBy, setSortBy] = useState<'date' | 'priority' | 'deadline'>('date');
+  const [deadlineFilter, setDeadlineFilter] = useState<'all' | 'today' | 'soon' | 'overdue' | 'none'>('all');
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -241,6 +242,12 @@ export const TaskListView: React.FC = () => {
       if (filters.priority !== 'all' && t.priority !== filters.priority) return false;
       if (filters.status !== 'all' && t.status !== filters.status) return false;
       if (filters.type && filters.type !== 'all' && t.type !== filters.type) return false;
+      const due = t.dueAt ? new Date(t.dueAt) : null;
+      const now = new Date();
+      if (deadlineFilter === 'none' && due) return false;
+      if (deadlineFilter === 'overdue' && (!due || due.getTime() >= now.getTime())) return false;
+      if (deadlineFilter === 'today' && (!due || due.toDateString() !== now.toDateString())) return false;
+      if (deadlineFilter === 'soon' && (!due || due.getTime() < now.getTime() || due.getTime() > now.getTime() + 3 * 86400000)) return false;
 
       return true;
     });
@@ -251,9 +258,14 @@ export const TaskListView: React.FC = () => {
         const weightB = getPriorityWeight(b.priority);
         if (weightA !== weightB) return weightB - weightA;
       }
+      if (sortBy === 'deadline') {
+        if (!a.dueAt) return 1;
+        if (!b.dueAt) return -1;
+        return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime();
+      }
       return new Date(b.updatedDate).getTime() - new Date(a.updatedDate).getTime();
     });
-  }, [tasks, filters, sortBy, selectedProjectViewId, selectedTagViewName]);
+  }, [tasks, filters, sortBy, deadlineFilter, selectedProjectViewId, selectedTagViewName]);
 
   return (
     <div className="flex-1 overflow-hidden flex flex-col h-full p-6 select-none">
@@ -311,7 +323,21 @@ export const TaskListView: React.FC = () => {
             >
               {lang === 'ru' ? 'Приоритет' : lang === 'uk' ? 'Пріоритет' : 'By Priority'}
             </button>
+            <button
+              onClick={() => setSortBy('deadline')}
+              className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer duration-200 ${sortBy === 'deadline' ? 'bg-white/10 text-white shadow-sm' : 'hover:text-slate-200'}`}
+            >
+              Дедлайн
+            </button>
           </div>
+
+          <select value={deadlineFilter} onChange={e => setDeadlineFilter(e.target.value as any)} className="px-2.5 py-1.5 rounded-lg border border-white/10 bg-slate-950 text-xs text-slate-300">
+            <option value="all">Все дедлайны</option>
+            <option value="today">Сегодня</option>
+            <option value="soon">Скоро</option>
+            <option value="overdue">Просрочено</option>
+            <option value="none">Без дедлайна</option>
+          </select>
 
           <button
             onClick={() => setIsCreateModalOpen(true, 'feature', 'planned')}
@@ -388,6 +414,24 @@ export const TaskListView: React.FC = () => {
 
                   {/* Priority badge */}
                   {getPriorityBadge(t.priority)}
+
+                  {t.dueAt && (() => {
+                    const due = new Date(t.dueAt);
+                    const remaining = due.getTime() - Date.now();
+                    const badgeClass = t.status === 'completed'
+                      ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
+                      : remaining < 0
+                        ? 'border-rose-500/30 bg-rose-500/10 text-rose-400'
+                        : remaining < 86400000
+                          ? 'border-amber-500/30 bg-amber-500/10 text-amber-400'
+                          : 'border-white/10 bg-white/5 text-slate-300';
+                    return (
+                      <span className={`flex items-center gap-1 px-2 py-0.5 rounded-md border ${badgeClass}`}>
+                        <Icons.CalendarClock className="w-3 h-3" />
+                        {due.toLocaleString(lang === 'ru' ? 'ru-RU' : 'en-US', { dateStyle: 'short', timeStyle: 'short' })}
+                      </span>
+                    );
+                  })()}
 
                   {/* Tags */}
                   {t.tags && t.tags.length > 0 && (

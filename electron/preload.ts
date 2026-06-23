@@ -37,6 +37,31 @@ contextBridge.exposeInMainWorld('api', {
   // Import / Export
   exportData: (format: 'json' | 'md' | 'html' | 'csv', data: any) => ipcRenderer.invoke('data:export', format, data),
   importData: () => ipcRenderer.invoke('data:import'),
+  reminders: {
+    start: () => ipcRenderer.invoke('reminders:start'),
+    stop: () => ipcRenderer.invoke('reminders:stop'),
+    checkNow: () => ipcRenderer.invoke('reminders:checkNow'),
+    getUpcoming: () => ipcRenderer.invoke('reminders:getUpcoming'),
+    openTask: (taskId: string) => ipcRenderer.invoke('reminders:openTask', taskId),
+    onOpenTask: (callback: (taskId: string) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, taskId: string) => callback(taskId);
+      ipcRenderer.on('reminders:openTask', listener);
+      return () => ipcRenderer.removeListener('reminders:openTask', listener);
+    }
+  },
+  settings: {
+    setRunInBackground: (enabled: boolean) => ipcRenderer.invoke('settings:setRunInBackground', enabled),
+    setAutoLaunch: (enabled: boolean) => ipcRenderer.invoke('settings:setAutoLaunch', enabled),
+    getNotificationStatus: () => ipcRenderer.invoke('settings:getNotificationStatus')
+  },
+  scheduledReleases: {
+    list: () => ipcRenderer.invoke('scheduledReleases:list'),
+    save: (release: any) => ipcRenderer.invoke('scheduledReleases:save', release),
+    cancel: (id: string) => ipcRenderer.invoke('scheduledReleases:cancel', id),
+    retry: (id: string) => ipcRenderer.invoke('scheduledReleases:retry', id),
+    publishNow: (release: any) => ipcRenderer.invoke('scheduledReleases:publishNow', release),
+    selectAssets: () => ipcRenderer.invoke('scheduledReleases:selectAssets')
+  },
 
   // Updates & Maintenance
   checkForUpdates: (channel: string) => ipcRenderer.invoke('update:check', channel),

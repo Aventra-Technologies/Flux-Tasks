@@ -160,6 +160,11 @@ const DEFAULT_SETTINGS: DesignSystem & {
   autoBackupIntervalHours?: '6' | '12' | '24' | '48';
   backupRetentionDays?: '1' | '3' | '7' | '14' | '30';
   lastAutoBackupTime?: string;
+  runInBackground?: 'true' | 'false';
+  autoLaunch?: 'true' | 'false';
+  backgroundReleasePublishing?: 'true' | 'false';
+  releaseNotifications?: 'true' | 'false';
+  releaseCheckIntervalSeconds?: string;
 } = {
   accentColor: '#3bd2ff',
   glassTint: 'purple',
@@ -182,7 +187,12 @@ const DEFAULT_SETTINGS: DesignSystem & {
   autoBackupEnabled: 'true',
   autoBackupIntervalHours: '12',
   backupRetentionDays: '3',
-  lastAutoBackupTime: ''
+  lastAutoBackupTime: '',
+  runInBackground: 'true',
+  autoLaunch: 'false',
+  backgroundReleasePublishing: 'true',
+  releaseNotifications: 'true',
+  releaseCheckIntervalSeconds: '60'
 };
 
 export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -346,6 +356,10 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const taskWithUpdate = {
       ...updatedTask,
       updatedDate: nowStr,
+      completedAt: updatedTask.status === 'completed'
+        ? (updatedTask.completedAt || nowStr)
+        : null,
+      isOverdue: Boolean(updatedTask.dueAt && updatedTask.status !== 'completed' && new Date(updatedTask.dueAt).getTime() < Date.now()),
       history: [
         ...(updatedTask.history || []),
         newLogItem

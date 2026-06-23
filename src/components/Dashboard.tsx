@@ -53,6 +53,11 @@ export const Dashboard: React.FC = () => {
   const safeProjects = Array.isArray(projects) ? projects : [];
   const safeReleases = Array.isArray(releases) ? releases : [];
   const safeActivityLogs = Array.isArray(activityLogs) ? activityLogs : [];
+  const deadlineTasks = useMemo(() => safeTasks
+    .filter(t => t.dueAt && t.status !== 'completed' && t.status !== 'cancelled')
+    .sort((a, b) => new Date(a.dueAt!).getTime() - new Date(b.dueAt!).getTime()), [tasks]);
+  const overdueTasks = deadlineTasks.filter(t => new Date(t.dueAt!).getTime() < Date.now());
+  const upcomingDeadlineTasks = deadlineTasks.filter(t => new Date(t.dueAt!).getTime() >= Date.now()).slice(0, 5);
 
   // Custom greeting based on time of day
   const getGreeting = () => {
@@ -429,6 +434,26 @@ export const Dashboard: React.FC = () => {
 
         {/* Right Side Columns Context & Activities (lg:col-span-4) */}
         <div className="lg:col-span-4 space-y-6">
+          <div className="glass-card p-4 space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+              <Icons.CalendarClock className="w-4 h-4 text-amber-400" />
+              Ближайшие дедлайны
+            </h3>
+            {overdueTasks.length > 0 && (
+              <div className="p-2 rounded-lg border border-rose-500/20 bg-rose-500/5 text-[10px] text-rose-300">
+                Просрочено: {overdueTasks.length}
+              </div>
+            )}
+            <div className="space-y-2">
+              {upcomingDeadlineTasks.map(task => (
+                <button key={task.id} onClick={() => setSelectedTask(task)} className="w-full text-left p-2 rounded-lg border border-white/5 bg-white/[0.02] hover:bg-white/5">
+                  <div className="text-xs text-slate-200 truncate">{task.title}</div>
+                  <div className="text-[10px] text-amber-400 mt-1">{new Date(task.dueAt!).toLocaleString()}</div>
+                </button>
+              ))}
+              {upcomingDeadlineTasks.length === 0 && <div className="text-[10px] text-slate-500">Нет ближайших дедлайнов</div>}
+            </div>
+          </div>
           
           {/* UPCOMING RELEASES */}
           <div className="glass-card p-4 space-y-4">

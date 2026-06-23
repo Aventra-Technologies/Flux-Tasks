@@ -62,6 +62,44 @@ export interface Task {
   githubIssueNumber?: number | null;
   githubIssueUrl?: string;
   githubIssueState?: string;
+  dueAt: string | null;
+  reminderAt: string | null;
+  reminderEnabled: boolean;
+  reminderRepeat: 'none' | 'hourly' | 'daily' | 'custom';
+  reminderCustomMinutes: number | null;
+  reminderSentAt: string | null;
+  completedAt: string | null;
+  isOverdue: boolean;
+}
+
+export interface ScheduledReleaseAsset {
+  id: string;
+  name: string;
+  localPath: string;
+  size: number;
+  sha256: string;
+}
+
+export interface ScheduledRelease {
+  id: string;
+  repoOwner: string;
+  repoName: string;
+  targetCommitish: string;
+  tagName: string;
+  releaseName: string;
+  body: string;
+  draft: boolean;
+  prerelease: boolean;
+  scheduledAt: string;
+  timezone: string;
+  status: 'scheduled' | 'publishing' | 'published' | 'failed' | 'cancelled';
+  assets: ScheduledReleaseAsset[];
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string | null;
+  githubReleaseId: string | null;
+  githubHtmlUrl: string | null;
+  lastError: string | null;
 }
 
 export interface Project {
@@ -177,6 +215,27 @@ export interface ElectronAPI {
   selectSaveFile: (options?: any) => Promise<string | null>;
   exportData: (format: 'json' | 'md' | 'html' | 'csv', data: any) => Promise<{ success: boolean; filePath?: string; error?: string }>;
   importData: () => Promise<{ type: 'json' | 'md'; data: any } | null>;
+  reminders: {
+    start: () => Promise<{ success: boolean }>;
+    stop: () => Promise<{ success: boolean }>;
+    checkNow: () => Promise<{ success: boolean; sent: number }>;
+    getUpcoming: () => Promise<Task[]>;
+    openTask: (taskId: string) => Promise<{ success: boolean }>;
+    onOpenTask?: (callback: (taskId: string) => void) => () => void;
+  };
+  settings: {
+    setRunInBackground: (enabled: boolean) => Promise<{ success: boolean }>;
+    setAutoLaunch: (enabled: boolean) => Promise<{ success: boolean }>;
+    getNotificationStatus: () => Promise<{ supported: boolean }>;
+  };
+  scheduledReleases: {
+    list: () => Promise<ScheduledRelease[]>;
+    save: (release: ScheduledRelease) => Promise<{ success: boolean }>;
+    cancel: (id: string) => Promise<{ success: boolean }>;
+    retry: (id: string) => Promise<{ success: boolean }>;
+    publishNow: (release: ScheduledRelease) => Promise<{ success: boolean; error?: string }>;
+    selectAssets: () => Promise<ScheduledReleaseAsset[]>;
+  };
 
   // Updates & Maintenance
   checkForUpdates: (channel: string) => Promise<{ updateAvailable: boolean; manifest?: any; error?: string }>;

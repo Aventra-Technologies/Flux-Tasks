@@ -261,6 +261,38 @@ export const SettingsView: React.FC = () => {
         <p className="text-xs text-slate-400">{getTranslation(lang, 'controlDesignSystemDesc')}</p>
       </div>
 
+      <div className="p-5 rounded-2xl border border-white/5 bg-slate-950/20 space-y-4">
+        <h3 className="text-sm font-semibold text-white flex items-center gap-2"><Icons.BellRing className="w-4 h-4 text-amber-400" /> Фоновая работа и публикации</h3>
+        {[
+          ['runInBackground', 'Работать в фоне', 'Напоминания и релизы продолжают обрабатываться после закрытия окна.'],
+          ['autoLaunch', 'Запускать вместе с Windows', 'Запуск в фоне при входе в Windows.'],
+          ['backgroundReleasePublishing', 'Разрешить фоновые публикации релизов', 'Публиковать запланированные GitHub-релизы автоматически.'],
+          ['releaseNotifications', 'Показывать уведомления о релизах', 'Уведомлять об успехе и ошибках публикации.']
+        ].map(([key, title, description]) => (
+          <label key={key} className="flex items-center justify-between gap-4 p-3 rounded-xl border border-white/5 bg-white/[0.02]">
+            <span><span className="block text-xs text-slate-200">{title}</span><span className="block text-[10px] text-slate-500 mt-1">{description}</span></span>
+            <input type="checkbox" checked={settings[key] !== 'false'} onChange={async e => {
+              const enabled = e.target.checked;
+              await updateSettings(key as any, String(enabled));
+              if (key === 'runInBackground') await window.api?.settings.setRunInBackground(enabled);
+              if (key === 'autoLaunch') await window.api?.settings.setAutoLaunch(enabled);
+            }} />
+          </label>
+        ))}
+        <label className="block text-xs text-slate-300">
+          Проверять расписание каждые
+          <select value={settings.releaseCheckIntervalSeconds || '60'} onChange={e => updateSettings('releaseCheckIntervalSeconds' as any, e.target.value)} className="ml-2 px-2 py-1 rounded border border-white/10 bg-slate-950">
+            <option value="60">60 секунд</option>
+            <option value="120">2 минуты</option>
+            <option value="300">5 минут</option>
+          </select>
+        </label>
+        <button onClick={async () => {
+          const status = await window.api?.settings.getNotificationStatus();
+          showToast(status?.supported ? 'Уведомления Electron поддерживаются системой' : 'Уведомления отключены или не поддерживаются системой', status?.supported ? 'success' : 'error');
+        }} className="btn-secondary px-3 py-2 text-xs">Проверить уведомления Windows</button>
+      </div>
+
       {/* SECTION I: THEME & APPEARANCE */}
       <div className="p-6 rounded-2xl border border-white/5 bg-slate-950/20 backdrop-blur-md space-y-6">
         <div>

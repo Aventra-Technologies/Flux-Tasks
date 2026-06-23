@@ -42,6 +42,7 @@ const PromptsView = lazy(() => import('./components/PromptsView').then(module =>
 const Onboarding = lazy(() => import('./components/Onboarding').then(module => ({ default: module.Onboarding })));
 const HistoryView = lazy(() => import('./components/HistoryView').then(module => ({ default: module.HistoryView })));
 const ArchiveView = lazy(() => import('./components/ArchiveView').then(module => ({ default: module.ArchiveView })));
+const ScheduledReleasesView = lazy(() => import('./components/ScheduledReleasesView').then(module => ({ default: module.ScheduledReleasesView })));
 const CommandPalette = lazy(() => import('./components/CommandPalette').then(module => ({ default: module.CommandPalette })));
 
 const ViewFallback = () => (
@@ -79,6 +80,17 @@ function WorkspaceApp() {
 
   const lang = settings.language;
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  React.useEffect(() => {
+    if (!window.api?.reminders.onOpenTask) return;
+    return window.api.reminders.onOpenTask((taskId) => {
+      const task = tasks.find(item => item.id === taskId);
+      if (task) {
+        setSelectedTask(task);
+        setCurrentView('all_tasks');
+      }
+    });
+  }, [tasks, setSelectedTask, setCurrentView]);
 
   // Sync settings with CSS variables dynamically
   useLayoutEffect(() => {
@@ -596,7 +608,7 @@ function WorkspaceApp() {
             <TitleBar />
           
           {/* TOP INTERACTIVE FILTER BAR (Omit on dashboard or notes specific full views) */}
-          {!selectedTask && !['dashboard', 'notes', 'roadmap', 'settings'].includes(currentView) && (
+          {!selectedTask && !['dashboard', 'notes', 'roadmap', 'settings', 'scheduled_releases'].includes(currentView) && (
             <div className="p-4 border-b border-white/10 bg-[#0a0a0a]/50 backdrop-blur-md flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0 select-none">
               
               {/* Left View title & search */}
@@ -734,6 +746,8 @@ function WorkspaceApp() {
               <HistoryView />
             ) : currentView === 'archive' ? (
               <ArchiveView />
+            ) : currentView === 'scheduled_releases' ? (
+              <ScheduledReleasesView />
             ) : ['planned', 'pending', 'in_progress', 'testing', 'completed', 'cancelled'].includes(currentView) ? (
               
               /* FOCUSED WORKFLOW LIST VIEW */

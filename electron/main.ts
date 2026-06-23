@@ -1,6 +1,7 @@
-import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, Notification } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as crypto from 'crypto';
 import { 
   initDatabase, 
   loadProjects, saveProject, deleteProject,
@@ -8,7 +9,7 @@ import {
   loadNotes, saveNote, deleteNote,
   loadReleases, saveRelease, deleteRelease,
   loadPrompts, savePrompt, deletePrompt,
-  loadSettings, saveSetting,
+  loadSettings, saveSetting, loadScheduledReleases, saveScheduledRelease, updateScheduledReleaseStatus,
   clearAllDatabase, copyAttachmentFile,
   createBackupFile, getBackupsList, restoreBackupFile, deleteBackupFile,
   loadAllActivityLogs, getDatabasePath, runBackupRetention
@@ -26,11 +27,23 @@ import {
   checkRollbackOccurred
 } from './updater';
 import { registerGithubGitHandlers } from './git-github';
+import {
+  checkReminders,
+  configureTray,
+  normalizeScheduledRelease,
+  publishScheduledRelease,
+  setAutoLaunch,
+  setRunInBackground,
+  startReleaseScheduler,
+  startReminderService,
+  stopReminderService
+} from './background-services';
 
 app.name = 'Flux Tasks';
 
 let mainWindow: BrowserWindow | null = null;
 let recoveryModeActive = false;
+let isQuitting = false;
 
 function logToFile(message: string) {
   try {
@@ -63,6 +76,9 @@ function createWindow() {
   });
 
   mainWindow.setMenuBarVisibility(false);
+  if (process.argv.includes('--background')) {
+    mainWindow.hide();
+  }
 
   // Open all external links (target="_blank" or window.open) in the default system browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -173,6 +189,13 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+  mainWindow.on('close', (event) => {
+    const runInBackground = (loadSettings().runInBackground ?? 'true') === 'true';
+    if (!isQuitting && runInBackground) {
+      event.preventDefault();
+      mainWindow?.hide();
+    }
+  });
 }
 
 let autoBackupTimer: NodeJS.Timeout | null = null;
@@ -267,6 +290,12 @@ app.whenReady().then(() => {
   initAutoBackupTimer();
 
   createWindow();
+  configureTray(() => mainWindow, () => {
+    isQuitting = true;
+    app.quit();
+  });
+  startReminderService(() => mainWindow);
+  startReleaseScheduler();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -277,12 +306,13 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   clearStartupCrashFlag();
-  if (process.platform !== 'darwin') {
+  if (process.platform !== 'darwin' && (loadSettings().runInBackground ?? 'true') !== 'true') {
     app.quit();
   }
 });
 
 app.on('before-quit', () => {
+  isQuitting = true;
   clearStartupCrashFlag();
 });
 
@@ -319,6 +349,12 @@ ipcMain.handle('db:loadAll', () => {
     autoBackupIntervalHours: settingsRaw.autoBackupIntervalHours || '12',
     backupRetentionDays: settingsRaw.backupRetentionDays || '3',
     lastAutoBackupTime: settingsRaw.lastAutoBackupTime || ''
+    ,
+    runInBackground: settingsRaw.runInBackground || 'true',
+    autoLaunch: settingsRaw.autoLaunch || 'false',
+    backgroundReleasePublishing: settingsRaw.backgroundReleasePublishing || 'true',
+    releaseNotifications: settingsRaw.releaseNotifications || 'true',
+    releaseCheckIntervalSeconds: settingsRaw.releaseCheckIntervalSeconds || '60'
   };
 
   return {
@@ -336,6 +372,74 @@ ipcMain.handle('db:loadAll', () => {
 ipcMain.handle('db:saveTask', (event, task) => {
   saveTask(task);
   return { success: true };
+});
+
+ipcMain.handle('reminders:start', () => {
+  startReminderService(() => mainWindow);
+  return { success: true };
+});
+ipcMain.handle('reminders:stop', () => {
+  stopReminderService();
+  return { success: true };
+});
+ipcMain.handle('reminders:checkNow', () => ({ success: true, sent: checkReminders(() => mainWindow) }));
+ipcMain.handle('reminders:getUpcoming', () => loadTasks()
+  .filter(t => t.dueAt && t.status !== 'completed')
+  .sort((a, b) => new Date(a.dueAt!).getTime() - new Date(b.dueAt!).getTime())
+  .slice(0, 20));
+ipcMain.handle('reminders:openTask', (_event, taskId) => {
+  if (mainWindow?.isMinimized()) mainWindow.restore();
+  mainWindow?.show();
+  mainWindow?.focus();
+  mainWindow?.webContents.send('reminders:openTask', taskId);
+  return { success: true };
+});
+ipcMain.handle('settings:setRunInBackground', (_event, enabled) => {
+  setRunInBackground(Boolean(enabled));
+  return { success: true };
+});
+ipcMain.handle('settings:setAutoLaunch', (_event, enabled) => {
+  setAutoLaunch(Boolean(enabled));
+  return { success: true };
+});
+ipcMain.handle('settings:getNotificationStatus', () => ({ supported: Notification.isSupported() }));
+
+ipcMain.handle('scheduledReleases:list', () => loadScheduledReleases());
+ipcMain.handle('scheduledReleases:save', (_event, release) => {
+  normalizeScheduledRelease(release);
+  startReleaseScheduler();
+  return { success: true };
+});
+ipcMain.handle('scheduledReleases:cancel', (_event, id) => {
+  updateScheduledReleaseStatus(id, 'cancelled');
+  return { success: true };
+});
+ipcMain.handle('scheduledReleases:retry', (_event, id) => {
+  updateScheduledReleaseStatus(id, 'scheduled');
+  startReleaseScheduler();
+  return { success: true };
+});
+ipcMain.handle('scheduledReleases:publishNow', async (_event, release) => {
+  saveScheduledRelease({ ...release, status: 'scheduled', scheduledAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+  return publishScheduledRelease(release);
+});
+ipcMain.handle('scheduledReleases:selectAssets', async () => {
+  if (!mainWindow) return [];
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openFile', 'multiSelections'],
+    filters: [{ name: 'Release assets', extensions: ['exe', 'zip', 'dmg', 'AppImage', 'txt'] }]
+  });
+  if (result.canceled) return [];
+  return result.filePaths.map((localPath, index) => {
+    const data = fs.readFileSync(localPath);
+    return {
+      id: `asset-${Date.now()}-${index}`,
+      name: path.basename(localPath),
+      localPath,
+      size: data.length,
+      sha256: crypto.createHash('sha256').update(data).digest('hex')
+    };
+  });
 });
 
 ipcMain.handle('db:deleteTask', (event, id) => {
@@ -389,6 +493,7 @@ ipcMain.handle('db:saveSettings', (event, settings) => {
   }
   // Re-initialize the backup timer with new settings
   initAutoBackupTimer();
+  startReleaseScheduler();
   return { success: true };
 });
 

@@ -403,6 +403,53 @@ export const TaskDetailView: React.FC = () => {
             )}
           </div>
 
+          <div className="space-y-3 p-4 rounded-xl border border-white/5 bg-white/[0.015]">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+              <Icons.CalendarClock className="w-4 h-4 text-amber-400" /> Дедлайн и напоминание
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <input
+                type="datetime-local"
+                value={selectedTask.dueAt ? new Date(new Date(selectedTask.dueAt).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''}
+                onChange={e => {
+                  const dueAt = e.target.value ? new Date(e.target.value).toISOString() : null;
+                  updateTask({
+                    ...selectedTask,
+                    dueAt,
+                    reminderAt: selectedTask.reminderEnabled ? dueAt : null,
+                    reminderSentAt: null,
+                    isOverdue: Boolean(dueAt && new Date(dueAt).getTime() < Date.now() && selectedTask.status !== 'completed')
+                  }, 'Deadline changed');
+                }}
+                className="px-3 py-2 rounded-lg border border-white/10 bg-black/30 text-xs text-white"
+              />
+              <select
+                value={selectedTask.reminderRepeat}
+                onChange={e => handleFieldChange('reminderRepeat', e.target.value, 'Reminder repeat changed')}
+                className="px-3 py-2 rounded-lg border border-white/10 bg-slate-950 text-xs text-white"
+              >
+                <option value="none">Не повторять</option>
+                <option value="hourly">Каждый час</option>
+                <option value="daily">Каждый день</option>
+                <option value="custom">Custom interval</option>
+              </select>
+            </div>
+            <label className="flex items-center gap-2 text-xs text-slate-300">
+              <input
+                type="checkbox"
+                checked={selectedTask.reminderEnabled}
+                disabled={!selectedTask.dueAt}
+                onChange={e => updateTask({
+                  ...selectedTask,
+                  reminderEnabled: e.target.checked,
+                  reminderAt: e.target.checked ? selectedTask.dueAt : null,
+                  reminderSentAt: null
+                }, 'Reminder toggled')}
+              />
+              Напомнить в момент дедлайна
+            </label>
+          </div>
+
           {/* CHECKLISTS COMPONENT */}
           <div className="space-y-3">
             <div className="flex items-center justify-between pb-1.5 border-b border-white/5">

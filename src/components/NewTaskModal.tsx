@@ -26,6 +26,12 @@ export const NewTaskModal: React.FC = () => {
   const [projectId, setProjectId] = useState('unassigned');
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [draftChecklist, setDraftChecklist] = useState<ChecklistItem[]>([]);
+  const [dueDate, setDueDate] = useState('');
+  const [dueTime, setDueTime] = useState('18:00');
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderOffset, setReminderOffset] = useState('0');
+  const [reminderRepeat, setReminderRepeat] = useState<'none' | 'hourly' | 'daily' | 'custom'>('none');
+  const [reminderCustomMinutes, setReminderCustomMinutes] = useState(60);
 
   // Intermediate lists for prompts, code, files additions
   const [draftPrompts, setDraftPrompts] = useState<PromptItem[]>([]);
@@ -66,6 +72,12 @@ export const NewTaskModal: React.FC = () => {
       setDraftPrompts([]);
       setDraftCodeSnippets([]);
       setDraftAttachments([]);
+      setDueDate('');
+      setDueTime('18:00');
+      setReminderEnabled(false);
+      setReminderOffset('0');
+      setReminderRepeat('none');
+      setReminderCustomMinutes(60);
       setIsAddPromptOpen(false);
       setIsAddCodeOpen(false);
       setNewPromptTitle('');
@@ -208,6 +220,11 @@ export const NewTaskModal: React.FC = () => {
     e.preventDefault();
     if (!title.trim()) return;
 
+    const dueAt = dueDate ? new Date(`${dueDate}T${dueTime || '18:00'}`).toISOString() : null;
+    const offsetMinutes = Number(reminderOffset || 0);
+    const reminderAt = reminderEnabled && dueAt
+      ? new Date(new Date(dueAt).getTime() - offsetMinutes * 60_000).toISOString()
+      : null;
     addTask({
       title: title.trim(),
       description: description.trim(),
@@ -220,7 +237,15 @@ export const NewTaskModal: React.FC = () => {
       attachments: draftAttachments,
       prompts: draftPrompts,
       codeSnippets: draftCodeSnippets,
-      notes: ''
+      notes: '',
+      dueAt,
+      reminderAt,
+      reminderEnabled: reminderEnabled && Boolean(dueAt),
+      reminderRepeat,
+      reminderCustomMinutes: reminderRepeat === 'custom' ? reminderCustomMinutes : null,
+      reminderSentAt: null,
+      completedAt: taskStatus === 'completed' ? new Date().toISOString() : null,
+      isOverdue: false
     });
 
     setIsCreateModalOpen(false);
@@ -299,6 +324,60 @@ export const NewTaskModal: React.FC = () => {
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          <div className="space-y-4 p-4 rounded-xl border border-white/5 bg-slate-900/10">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-300 uppercase tracking-wider">
+              <Icons.CalendarClock className="w-4 h-4 text-amber-400" />
+              <span>Дедлайн</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="px-3 py-2 rounded-lg border border-white/10 bg-black/30 text-xs text-white" />
+              <input type="time" value={dueTime} onChange={e => setDueTime(e.target.value)} className="px-3 py-2 rounded-lg border border-white/10 bg-black/30 text-xs text-white" />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {[
+                ['Сегодня', 0],
+                ['Завтра', 1],
+                ['Через 3 дня', 3],
+                ['На следующей неделе', 7]
+              ].map(([label, days]) => (
+                <button key={String(label)} type="button" onClick={() => {
+                  const date = new Date();
+                  date.setDate(date.getDate() + Number(days));
+                  setDueDate(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`);
+                }} className="px-2.5 py-1 rounded-lg border border-white/10 bg-white/5 text-[10px] text-slate-300 hover:bg-white/10">
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="border-t border-white/5 pt-4 space-y-3">
+              <label className="flex items-center gap-2 text-xs text-slate-300">
+                <input type="checkbox" checked={reminderEnabled} onChange={e => setReminderEnabled(e.target.checked)} disabled={!dueDate} />
+                Напомнить
+              </label>
+              {reminderEnabled && dueDate && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <select value={reminderOffset} onChange={e => setReminderOffset(e.target.value)} className="px-3 py-2 rounded-lg border border-white/10 bg-slate-950 text-xs text-white">
+                    <option value="0">В момент дедлайна</option>
+                    <option value="10">За 10 минут</option>
+                    <option value="30">За 30 минут</option>
+                    <option value="60">За 1 час</option>
+                    <option value="1440">За 1 день</option>
+                  </select>
+                  <select value={reminderRepeat} onChange={e => setReminderRepeat(e.target.value as any)} className="px-3 py-2 rounded-lg border border-white/10 bg-slate-950 text-xs text-white">
+                    <option value="none">Не повторять</option>
+                    <option value="hourly">Каждый час после дедлайна</option>
+                    <option value="daily">Каждый день после дедлайна</option>
+                    <option value="custom">Custom interval</option>
+                  </select>
+                  {reminderRepeat === 'custom' && (
+                    <input type="number" min={1} value={reminderCustomMinutes} onChange={e => setReminderCustomMinutes(Math.max(1, Number(e.target.value)))} className="px-3 py-2 rounded-lg border border-white/10 bg-black/30 text-xs text-white" placeholder="Интервал, минут" />
+                  )}
+                </div>
+              )}
+              <p className="text-[10px] text-slate-500">Время сохраняется в UTC и отображается в локальном часовом поясе.</p>
             </div>
           </div>
 

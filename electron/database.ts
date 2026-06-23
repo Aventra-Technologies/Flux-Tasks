@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import * as path from 'path';
 import * as fs from 'fs';
 import { app } from 'electron';
-import { Task, Project, Release, NoteItem, PromptItem, BackupItem, ChecklistItem, Attachment, TaskHistoryItem } from '../src/types';
+import { Task, Project, Release, NoteItem, PromptItem, BackupItem, ChecklistItem, Attachment, TaskHistoryItem, ScheduledRelease } from '../src/types';
 
 let db: DatabaseSync | null = null;
 let dbPath = '';
@@ -167,6 +167,30 @@ export function initDatabase() {
     );
   `);
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS scheduled_releases (
+      id TEXT PRIMARY KEY,
+      repo_owner TEXT NOT NULL,
+      repo_name TEXT NOT NULL,
+      target_commitish TEXT DEFAULT 'main',
+      tag_name TEXT NOT NULL,
+      release_name TEXT NOT NULL,
+      body TEXT,
+      draft INTEGER DEFAULT 0,
+      prerelease INTEGER DEFAULT 0,
+      scheduled_at TEXT NOT NULL,
+      timezone TEXT NOT NULL,
+      status TEXT DEFAULT 'scheduled',
+      assets_json TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      published_at TEXT,
+      github_release_id TEXT,
+      github_html_url TEXT,
+      last_error TEXT
+    );
+  `);
+
   // Alter tables for v0.2.0 compatibility
   try {
     db.exec("ALTER TABLE projects ADD COLUMN status TEXT DEFAULT 'active';");
@@ -206,6 +230,17 @@ export function initDatabase() {
   try {
     db.exec("ALTER TABLE tasks ADD COLUMN githubIssueState TEXT DEFAULT '';");
   } catch (e) {}
+  for (const migration of [
+    "ALTER TABLE tasks ADD COLUMN due_at TEXT;",
+    "ALTER TABLE tasks ADD COLUMN reminder_at TEXT;",
+    "ALTER TABLE tasks ADD COLUMN reminder_enabled INTEGER DEFAULT 0;",
+    "ALTER TABLE tasks ADD COLUMN reminder_repeat TEXT DEFAULT 'none';",
+    "ALTER TABLE tasks ADD COLUMN reminder_custom_minutes INTEGER;",
+    "ALTER TABLE tasks ADD COLUMN reminder_sent_at TEXT;",
+    "ALTER TABLE tasks ADD COLUMN completed_at TEXT;"
+  ]) {
+    try { db.exec(migration); } catch (e) {}
+  }
 
   // Run orphan file cleanup on start
   cleanupOrphanAttachments();
@@ -399,7 +434,15 @@ export function loadTasks(): Task[] {
       history: logsMap[r.id] || [],
       githubIssueNumber: r.githubIssueNumber !== undefined ? r.githubIssueNumber : null,
       githubIssueUrl: r.githubIssueUrl || '',
-      githubIssueState: r.githubIssueState || ''
+      githubIssueState: r.githubIssueState || '',
+      dueAt: r.due_at || null,
+      reminderAt: r.reminder_at || null,
+      reminderEnabled: r.reminder_enabled === 1,
+      reminderRepeat: r.reminder_repeat || 'none',
+      reminderCustomMinutes: r.reminder_custom_minutes ?? null,
+      reminderSentAt: r.reminder_sent_at || null,
+      completedAt: r.completed_at || null,
+      isOverdue: Boolean(r.due_at && r.status !== 'completed' && new Date(r.due_at).getTime() < Date.now())
     };
   });
 }
@@ -408,8 +451,8 @@ export function saveTask(t: Task) {
   runInTransaction(() => {
     // 1. Save core task
     runQuery(
-      `INSERT INTO tasks (id, title, description, projectId, priority, type, status, notes, codeSnippets, createdDate, updatedDate, githubIssueNumber, githubIssueUrl, githubIssueState)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO tasks (id, title, description, projectId, priority, type, status, notes, codeSnippets, createdDate, updatedDate, githubIssueNumber, githubIssueUrl, githubIssueState, due_at, reminder_at, reminder_enabled, reminder_repeat, reminder_custom_minutes, reminder_sent_at, completed_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          title = excluded.title,
          description = excluded.description,
@@ -423,7 +466,14 @@ export function saveTask(t: Task) {
          updatedDate = excluded.updatedDate,
          githubIssueNumber = excluded.githubIssueNumber,
          githubIssueUrl = excluded.githubIssueUrl,
-         githubIssueState = excluded.githubIssueState`,
+         githubIssueState = excluded.githubIssueState,
+         due_at = excluded.due_at,
+         reminder_at = excluded.reminder_at,
+         reminder_enabled = excluded.reminder_enabled,
+         reminder_repeat = excluded.reminder_repeat,
+         reminder_custom_minutes = excluded.reminder_custom_minutes,
+         reminder_sent_at = excluded.reminder_sent_at,
+         completed_at = excluded.completed_at`,
       [
         t.id,
         t.title,
@@ -438,7 +488,14 @@ export function saveTask(t: Task) {
         t.updatedDate,
         t.githubIssueNumber !== undefined ? t.githubIssueNumber : null,
         t.githubIssueUrl || '',
-        t.githubIssueState || ''
+        t.githubIssueState || '',
+        t.dueAt || null,
+        t.reminderAt || null,
+        t.reminderEnabled ? 1 : 0,
+        t.reminderRepeat || 'none',
+        t.reminderCustomMinutes ?? null,
+        t.reminderSentAt || null,
+        t.status === 'completed' ? (t.completedAt || new Date().toISOString()) : null
       ]
     );
 
@@ -519,6 +576,56 @@ export function deleteTask(id: string) {
   });
   // Clean up orphan files immediately
   cleanupOrphanAttachments();
+}
+
+export function markTaskReminderSent(id: string, sentAt: string) {
+  runQuery('UPDATE tasks SET reminder_sent_at = ? WHERE id = ?', [sentAt, id]);
+}
+
+export function loadScheduledReleases(): ScheduledRelease[] {
+  return allQuery('SELECT * FROM scheduled_releases ORDER BY scheduled_at ASC').map((r: any) => {
+    let assets = [];
+    try { assets = JSON.parse(r.assets_json || '[]'); } catch {}
+    return ({
+    id: r.id,
+    repoOwner: r.repo_owner,
+    repoName: r.repo_name,
+    targetCommitish: r.target_commitish || 'main',
+    tagName: r.tag_name,
+    releaseName: r.release_name,
+    body: r.body || '',
+    draft: r.draft === 1,
+    prerelease: r.prerelease === 1,
+    scheduledAt: r.scheduled_at,
+    timezone: r.timezone,
+    status: r.status,
+    assets,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+    publishedAt: r.published_at || null,
+    githubReleaseId: r.github_release_id || null,
+    githubHtmlUrl: r.github_html_url || null,
+    lastError: r.last_error || null
+    });
+  });
+}
+
+export function saveScheduledRelease(r: ScheduledRelease) {
+  runQuery(
+    `INSERT OR REPLACE INTO scheduled_releases
+     (id, repo_owner, repo_name, target_commitish, tag_name, release_name, body, draft, prerelease, scheduled_at, timezone, status, assets_json, created_at, updated_at, published_at, github_release_id, github_html_url, last_error)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [r.id, r.repoOwner, r.repoName, r.targetCommitish || 'main', r.tagName, r.releaseName, r.body || '', r.draft ? 1 : 0, r.prerelease ? 1 : 0, r.scheduledAt, r.timezone, r.status, JSON.stringify(r.assets || []), r.createdAt, r.updatedAt, r.publishedAt, r.githubReleaseId, r.githubHtmlUrl, r.lastError]
+  );
+}
+
+export function updateScheduledReleaseStatus(id: string, status: string, fields: Partial<ScheduledRelease> = {}) {
+  runQuery(
+    `UPDATE scheduled_releases SET status = ?, updated_at = ?, published_at = COALESCE(?, published_at),
+     github_release_id = COALESCE(?, github_release_id), github_html_url = COALESCE(?, github_html_url), last_error = ?
+     WHERE id = ?`,
+    [status, new Date().toISOString(), fields.publishedAt || null, fields.githubReleaseId || null, fields.githubHtmlUrl || null, fields.lastError || null, id]
+  );
 }
 
 // CRUD - Notes
@@ -844,6 +951,7 @@ export function clearAllDatabase() {
     runQuery('DELETE FROM projects');
     runQuery('DELETE FROM notes');
     runQuery('DELETE FROM releases');
+    runQuery('DELETE FROM scheduled_releases');
     runQuery('DELETE FROM roadmap_items');
     runQuery('DELETE FROM settings');
   });

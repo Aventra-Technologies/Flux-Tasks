@@ -360,6 +360,22 @@ export const Sidebar: React.FC = () => {
   
           {/* AI Prompts */}
           <button
+            onClick={() => { setCurrentView('scheduled_releases'); setSelectedProjectViewId(null); setSelectedTagViewName(null); }}
+            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-[10px] text-xs transition-all duration-200 cursor-pointer active:scale-[0.98] ${
+              currentView === 'scheduled_releases'
+                ? 'bg-white/[0.07] text-white font-semibold border border-white/[0.08]'
+                : 'text-white/60 hover:bg-white/[0.03] hover:text-white border border-transparent'
+            }`}
+            title="GitHub Releases"
+          >
+            <div className="flex items-center gap-2 truncate">
+              <Rocket className="w-4 h-4 shrink-0 text-purple-400" />
+              {!isCollapsed && <span className="truncate">GitHub Releases</span>}
+            </div>
+          </button>
+
+          {/* AI Prompts */}
+          <button
             onClick={() => { setCurrentView('prompts'); setSelectedProjectViewId(null); setSelectedTagViewName(null); }}
             className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-[10px] text-xs transition-all duration-200 cursor-pointer active:scale-[0.98] ${
               currentView === 'prompts'
