@@ -1,7 +1,7 @@
 {
-  "version": "1.1.21",
-  "primaryUrl": "https://github.com/Flux-Tasks/Flux-Tasks/releases/download/v1.1.21/Flux.Tasks.Setup.exe",
+  "version": "1.1.22",
+  "primaryUrl": "https://github.com/Flux-Tasks/Flux-Tasks/releases/download/v1.1.22/Flux.Tasks.Setup.exe",
   "mirrorUrl": "https://github.com/Flux-Tasks/Flux-Tasks/releases/latest/download/Flux.Tasks.Setup.exe",
-  "expectedSha256": "0d2a622d08175a76e4b6e01703fc086c4a2d0e7dafdb0ca3f2bf152d58720178",
+  "expectedSha256": "21d2e822e0526c105c97dcc5cff47bb2a696b0486a8a5dd22303f428e1b30983",
   "fileName": "FluxTasks-Setup.exe"
 }

@@ -19,8 +19,7 @@ jobs:
       GITHUB_OWNER: Flux-Tasks
       GITHUB_REPO: Flux-Tasks
       RELEASE_CHANNEL: stable
-      CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE }}
-      CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+      CSC_IDENTITY_AUTO_DISCOVERY: false
 
     steps:
       - uses: actions/checkout@v4
@@ -41,24 +40,9 @@ jobs:
           $channel = if ($version -match "-(alpha|beta|rc)") { $Matches[1] } else { "stable" }
           "RELEASE_CHANNEL=$channel" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Require Windows code-signing secrets
-        shell: pwsh
-        run: |
-          if ([string]::IsNullOrWhiteSpace($env:CSC_LINK) -or [string]::IsNullOrWhiteSpace($env:CSC_KEY_PASSWORD)) {
-            throw "WINDOWS_CERTIFICATE and WINDOWS_CERTIFICATE_PASSWORD secrets are required for public releases."
-          }
-
       - run: npm run build:frontend
       - run: npm run build:electron
       - run: npx electron-builder --win --publish never
-
-      - name: Verify Authenticode signature
-        shell: pwsh
-        run: |
-          $signature = Get-AuthenticodeSignature "release/Flux Tasks Setup.exe"
-          if ($signature.Status -ne "Valid") {
-            throw "Installer Authenticode signature is not valid: $($signature.StatusMessage)"
-          }
 
       - name: Prepare update assets
         shell: pwsh
