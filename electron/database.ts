@@ -2,6 +2,12 @@ import { DatabaseSync } from 'node:sqlite';
 import * as path from 'path';
 import * as fs from 'fs';
 import { app } from 'electron';
+
+// Set application name early to guarantee consistent userData path resolution
+if (app) {
+  app.name = 'Flux Tasks';
+}
+
 import { Task, Project, Release, NoteItem, PromptItem, BackupItem, ChecklistItem, Attachment, TaskHistoryItem, ScheduledRelease } from '../src/types';
 
 let db: DatabaseSync | null = null;
@@ -9,7 +15,6 @@ let dbPath = '';
 
 export function getAppDataPath() {
   const userDataPath = app.getPath('userData');
-  // Ensure application name matches Flux Tasks
   return userDataPath;
 }
 
