@@ -344,13 +344,22 @@ async function startRelease() {
 
     // 2. Скомпилировать и упаковать цели приложения (EXE и ZIP)
     if (process.platform === 'win32') {
+      console.log('Остановка запущенных фоновых процессов Flux Tasks.exe и electron.exe для предотвращения блокировки файлов...');
       try {
-        console.log('Остановка запущенных фоновых процессов Flux Tasks.exe для предотвращения блокировки файлов...');
         execSync('taskkill /f /im "Flux Tasks.exe"', { stdio: 'ignore' });
+      } catch (e) {
+        // Игнорируем, если процесс не был запущен
+      }
+      try {
+        execSync('taskkill /f /im "electron.exe"', { stdio: 'ignore' });
+      } catch (e) {
+        // Игнорируем, если процесс не был запущен
+      }
+      try {
         // Give OS a split second to release handles
         execSync('timeout /t 1 /nobreak > nul');
       } catch (e) {
-        // Игнорируем, если процесс не был запущен
+        // Игнорируем
       }
     }
     console.log('\nЗапуск компиляции, сборки фронтенда и упаковки...');

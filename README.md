@@ -328,7 +328,7 @@ Official Windows releases of Flux Tasks may be digitally signed to ensure authen
 
 Users should only download Flux Tasks from official project sources:
 
-* GitHub Releases: https://github.com/Straniksss/Flux-Tasks/releases
+* GitHub Releases: https://github.com/Flux-Tasks/Flux-Tasks/releases
 
 Digital signatures help verify that release artifacts were produced by the Flux Tasks project and have not been modified by third parties.
 
