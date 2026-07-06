@@ -1,0 +1,8 @@
+version: 1.1.27
+files:
+  - url: Flux.Tasks.Setup.exe
+    sha512: NO1NhxLzI0rVGuSrOiAw13eBlQs6EVDxx2ByedULsiCZb9IzEFm9GnPDgMmKwiDmLqPaPQ9LIWFS6fIfyFEv/w==
+    size: 114651507
+path: Flux.Tasks.Setup.exe
+sha512: NO1NhxLzI0rVGuSrOiAw13eBlQs6EVDxx2ByedULsiCZb9IzEFm9GnPDgMmKwiDmLqPaPQ9LIWFS6fIfyFEv/w==
+releaseDate: '2026-07-06T11:08:56.088Z'
