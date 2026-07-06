@@ -1,0 +1,16 @@
+{
+  "version": "1.1.27",
+  "channel": "stable",
+  "updateType": "asar",
+  "asarUrl": "https://github.com/Flux-Tasks/Flux-Tasks/releases/download/v1.1.27/app.asar",
+  "packageUrl": "https://github.com/Flux-Tasks/Flux-Tasks/releases/download/v1.1.27/Flux.Tasks.Setup.exe",
+  "packageMirrorUrl": "https://github.com/Flux-Tasks/Flux-Tasks/releases/latest/download/Flux.Tasks.Setup.exe",
+  "packageSha256": "6024f0b74b028dbaefc481f2daa0dc4c081f317a12ebf20a7d675da0c3ba3165",
+  "packageSize": 114651507,
+  "sha256": "674dfddc4ba8ec2935103da605a102901155fef0f676d533512cda92bdc93c13",
+  "size": 52794228,
+  "releaseNotes": [
+    "Исправление hook order"
+  ],
+  "publishedAt": "2026-07-06T11:08:56.088Z"
+}
