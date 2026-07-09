@@ -1,8 +1,8 @@
-version: 1.1.31
+version: 1.1.32
 files:
   - url: Flux.Tasks.Setup.exe
-    sha512: Pjc9uYIVBrugjUnEpQRsYHijp45pjQkEyaTO8W0E4pdXlxb6AJ6/nJD2pYyK/Y/NeBsGby1aTyOWvNsfxkH3TQ==
-    size: 119365681
+    sha512: +aavr2uThIfIFEmsVZG6vhxcPkYUHqeV1k++hQUwpG65o76dTx03ZNWTUw0j3h1h3E0+QkkXIMcmtD57K5T4lw==
+    size: 119365722
 path: Flux.Tasks.Setup.exe
-sha512: Pjc9uYIVBrugjUnEpQRsYHijp45pjQkEyaTO8W0E4pdXlxb6AJ6/nJD2pYyK/Y/NeBsGby1aTyOWvNsfxkH3TQ==
-releaseDate: '2026-07-09T17:32:00.248Z'
+sha512: +aavr2uThIfIFEmsVZG6vhxcPkYUHqeV1k++hQUwpG65o76dTx03ZNWTUw0j3h1h3E0+QkkXIMcmtD57K5T4lw==
+releaseDate: '2026-07-09T17:44:49.835Z'

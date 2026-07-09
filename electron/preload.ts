@@ -73,7 +73,7 @@ contextBridge.exposeInMainWorld('api', {
   // Updates & Maintenance
   checkForUpdates: (channel: string) => ipcRenderer.invoke('update:check', channel),
   downloadUpdate: (manifest: any) => ipcRenderer.invoke('update:download', manifest),
-  installUpdate: (packagePath: string, isAsarOnly: boolean) => ipcRenderer.invoke('update:install', packagePath, isAsarOnly),
+  installUpdate: (packagePath: string, isAsarOnly: boolean, manifest?: any) => ipcRenderer.invoke('update:install', packagePath, isAsarOnly, manifest),
   getUpdateLogs: () => ipcRenderer.invoke('update:getLogs'),
   openUpdateLog: () => ipcRenderer.invoke('update:openLog'),
   getCurrentVersion: () => ipcRenderer.invoke('update:getVersion'),
@@ -133,3 +133,4 @@ contextBridge.exposeInMainWorld('api', {
     openTerminal: (localPath: string) => ipcRenderer.invoke('git:openTerminal', localPath)
   }
 });
+

@@ -24,7 +24,8 @@ import {
   clearStartupCrashFlag,
   repairDatabaseIntegrity,
   checkStartupUpdates,
-  checkRollbackOccurred
+  checkRollbackOccurred,
+  getEffectiveAppVersion
 } from './updater';
 import { registerGithubGitHandlers } from './git-github';
 import {
@@ -286,7 +287,7 @@ app.whenReady().then(() => {
     }
     logToFile(`App version from Electron: ${app.getVersion()}`);
     logToFile(`Package version: ${packageVersion}`);
-    logToFile(`Displayed version: ${app.getVersion()}`);
+    logToFile(`Displayed version: ${getEffectiveAppVersion()}`);
 
     try {
       checkStartupUpdates(recoveryModeActive);
@@ -899,8 +900,8 @@ ipcMain.handle('update:download', async (event, manifest) => {
   return downloadUpdateFile(manifest);
 });
 
-ipcMain.handle('update:install', async (event, packagePath, isAsarOnly) => {
-  return installUpdatePackage(packagePath, isAsarOnly);
+ipcMain.handle('update:install', async (event, packagePath, isAsarOnly, manifest) => {
+  return installUpdatePackage(packagePath, isAsarOnly, manifest);
 });
 
 ipcMain.handle('update:getLogs', () => {
@@ -913,11 +914,11 @@ ipcMain.handle('update:openLog', () => {
 });
 
 ipcMain.handle('update:getVersion', () => {
-  return app.getVersion();
+  return getEffectiveAppVersion();
 });
 
 ipcMain.handle('app:getVersion', () => {
-  return app.getVersion();
+  return getEffectiveAppVersion();
 });
 
 ipcMain.handle('app:getSystemInfo', async () => {
@@ -978,13 +979,22 @@ ipcMain.handle('app:getSystemInfo', async () => {
   // 4. Calculate RAM in GB
   const ramGb = Math.round(os.totalmem() / (1024 * 1024 * 1024)) + ' GB';
 
+  const exePath = process.execPath.toLowerCase();
+  const isMicrosoftStore = Boolean(
+    (process as any).windowsStore ||
+    process.env.APPX_PACKAGE_FAMILY_NAME ||
+    process.env.APPX_PACKAGE_NAME ||
+    process.env.MSIX_PACKAGE_FAMILY_NAME ||
+    exePath.includes('\\windowsapps\\')
+  );
+
   return {
     os: osName,
     arch: os.arch(),
     cpu: cpuName,
     ram: ramGb,
     gpu: gpuName,
-    isMicrosoftStore: !!(process as any).windowsStore
+    isMicrosoftStore
   };
 });
 
@@ -1040,4 +1050,5 @@ ipcMain.handle('window:close', () => {
 ipcMain.handle('window:isMaximized', () => {
   return mainWindow?.isMaximized() || false;
 });
+
 

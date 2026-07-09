@@ -86,8 +86,8 @@ function WorkspaceApp() {
     return window.api.reminders.onOpenTask((taskId) => {
       const task = tasks.find(item => item.id === taskId);
       if (task) {
-        setSelectedTask(task);
         setCurrentView('all_tasks');
+        setSelectedTask(task);
       }
     });
   }, [tasks, setSelectedTask, setCurrentView]);
@@ -938,7 +938,7 @@ function WorkspaceApp() {
                         const res = await window.api.downloadUpdate(updateManifest);
                         if (res.success && res.packagePath) {
                           const isAsarOnly = !!updateManifest.asarUrl;
-                          await window.api.installUpdate(res.packagePath, isAsarOnly);
+                          await window.api.installUpdate(res.packagePath, isAsarOnly, updateManifest);
                         } else {
                           showToast(`${lang === 'ru' ? 'Ошибка загрузки обновления' : 'Download failed'}: ${res.error}`, 'error');
                           setInstallingUpdate(false);
@@ -985,3 +985,4 @@ export default function App() {
     </StoreProvider>
   );
 }
+

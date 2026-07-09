@@ -56,6 +56,8 @@ export const AboutSettings: React.FC = () => {
   const [discoveredManifest, setDiscoveredManifest] = useState<any>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [downloadedPackagePath, setDownloadedPackagePath] = useState<string | null>(null);
+  const buildNumber = '1432';
+  const isStoreBuild = Boolean(systemInfo?.isMicrosoftStore);
 
   useEffect(() => {
     if (cachedSystemInfo && cachedVersion) return;
@@ -118,7 +120,7 @@ export const AboutSettings: React.FC = () => {
     if (!downloadedPackagePath || !discoveredManifest || !window.api) return;
     try {
       const isAsarOnly = downloadedPackagePath.endsWith('app.asar');
-      await window.api.installUpdate(downloadedPackagePath, isAsarOnly);
+      await window.api.installUpdate(downloadedPackagePath, isAsarOnly, discoveredManifest);
     } catch (err: any) {
       setUpdateStatus('error');
       setUpdateError(err.message || 'Installation failed');
@@ -206,15 +208,28 @@ export const AboutSettings: React.FC = () => {
         <div className="space-y-2 text-center md:text-left flex-grow">
           <div>
             <h3 className="text-lg font-display font-bold text-white leading-none">Flux Tasks</h3>
-            <div className="text-xs text-slate-400 mt-2 font-medium">
-              {lang === 'ru' ? 'Версия' : lang === 'uk' ? 'Версія' : 'Version'} {version || '1.1.28'}
-              {systemInfo?.isMicrosoftStore && (
-                <span className="ml-1.5 px-2 py-0.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 font-semibold text-[9px] uppercase tracking-wide">
+            <div className="text-xs text-slate-400 mt-2 font-medium flex flex-wrap items-center justify-center md:justify-start gap-1.5">
+              <span>{lang === 'ru' ? 'Версия' : lang === 'uk' ? 'Версія' : 'Version'} {version || '1.1.29'}</span>
+              {isStoreBuild && (
+                <span className="px-2 py-0.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 font-semibold text-[9px] uppercase tracking-wide">
                   Microsoft Store
                 </span>
               )}
             </div>
-            <div className="text-[10px] text-slate-500 font-mono mt-0.5">Build 1432</div>
+            <div className="text-[10px] text-slate-500 font-mono mt-0.5">Build {buildNumber}</div>
+            {isStoreBuild && (
+              <div className="mt-2 flex flex-wrap items-center justify-center md:justify-start gap-2 text-[10px] font-semibold text-slate-300">
+                <span className="px-2 py-1 rounded-lg border border-white/5 bg-white/[0.03]">
+                  {lang === 'ru' ? 'Версия' : lang === 'uk' ? 'Версія' : 'Version'} {version || '1.1.29'}
+                </span>
+                <span className="px-2 py-1 rounded-lg border border-white/5 bg-white/[0.03]">
+                  Build {buildNumber}
+                </span>
+                <span className="px-2 py-1 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 uppercase tracking-wide">
+                  Microsoft Store
+                </span>
+              </div>
+            )}
           </div>
           <p className="text-xs text-slate-300 leading-relaxed max-w-xl">
             Flux Tasks — современный менеджер задач и проектов с поддержкой SQLite, GitHub Releases и локального хранения данных.
@@ -457,3 +472,4 @@ SOFTWARE.`}
     </div>
   );
 };
+

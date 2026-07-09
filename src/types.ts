@@ -248,7 +248,7 @@ export interface ElectronAPI {
   // Updates & Maintenance
   checkForUpdates: (channel: string) => Promise<{ updateAvailable: boolean; manifest?: any; error?: string }>;
   downloadUpdate: (manifest: any) => Promise<{ success: boolean; packagePath?: string; error?: string }>;
-  installUpdate: (packagePath: string, isAsarOnly: boolean) => Promise<{ success: boolean; error?: string }>;
+  installUpdate: (packagePath: string, isAsarOnly: boolean, manifest?: any) => Promise<{ success: boolean; error?: string }>;
   getUpdateLogs: () => Promise<string>;
   openUpdateLog: () => Promise<void>;
   getCurrentVersion: () => Promise<string>;
@@ -321,3 +321,4 @@ declare global {
     api?: ElectronAPI;
   }
 }
+

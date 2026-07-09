@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
 import { 
   Task, Project, Release, NoteItem, DesignSystem, AppLanguage, 
   TaskStatus, TaskPriority, TaskType, BackupItem, PromptItem
@@ -220,6 +220,21 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   useEffect(() => {
     setProjectTab('tasks');
   }, [selectedProjectViewId]);
+
+  const navigateToView = useCallback((view: string) => {
+    setSelectedTask(null);
+    setCurrentView(view);
+  }, []);
+
+  const selectProjectView = useCallback((id: string | null) => {
+    setSelectedTask(null);
+    setSelectedProjectViewId(id);
+  }, []);
+
+  const selectTagView = useCallback((name: string | null) => {
+    setSelectedTask(null);
+    setSelectedTagViewName(name);
+  }, []);
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
@@ -723,9 +738,9 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setProjectTab,
 
     setFilters,
-    setCurrentView,
-    setSelectedProjectViewId,
-    setSelectedTagViewName,
+    setCurrentView: navigateToView,
+    setSelectedProjectViewId: selectProjectView,
+    setSelectedTagViewName: selectTagView,
     setSelectedTask,
     setIsCreateModalOpen: handleOpenCreateModal,
 
@@ -775,7 +790,10 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     createModalInitialStatus,
     projectTab,
     toast,
-    isLoading
+    isLoading,
+    navigateToView,
+    selectProjectView,
+    selectTagView
   ]);
 
   return (

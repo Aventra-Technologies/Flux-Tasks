@@ -1,4 +1,4 @@
-import React, { useState, Suspense, startTransition } from 'react';
+import React, { useEffect, useState, Suspense, startTransition } from 'react';
 import { useStore } from '../store';
 import { getTranslation } from '../localization';
 import * as Icons from 'lucide-react';
@@ -96,6 +96,11 @@ export const SettingsView: React.FC = () => {
     }
     return 'general';
   });
+  const [appVersion, setAppVersion] = useState('1.1.29');
+
+  useEffect(() => {
+    window.api?.app?.getVersion?.().then(setAppVersion).catch(() => {});
+  }, []);
 
   const handleTabChange = (tab: SettingsTab) => {
     startTransition(() => {
@@ -199,7 +204,7 @@ export const SettingsView: React.FC = () => {
 
           {/* Sidebar Footer */}
           <div className="px-2 py-1 text-[10px] text-slate-500 font-mono select-none">
-            Flux Tasks v1.1.28
+            Flux Tasks v{appVersion}
           </div>
         </div>
 
@@ -236,3 +241,4 @@ export const SettingsView: React.FC = () => {
     </div>
   );
 };
+

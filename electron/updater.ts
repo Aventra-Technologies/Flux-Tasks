@@ -23,6 +23,7 @@ const UPDATES_LOGS_DIR = path.join(UPDATES_DIR, 'logs');
 const LOGS_DIR = path.join(APP_DATA_PATH, 'logs');
 const UPDATE_LOG_PATH = path.join(LOGS_DIR, 'update.log');
 const CRASH_FLAG_PATH = path.join(APP_DATA_PATH, 'crash_detect.flag');
+const APPLIED_UPDATE_PATH = path.join(UPDATES_DIR, 'applied-update.json');
 
 // Initialize directories
 [DOWNLOADS_DIR, BACKUPS_DIR, LOGS_DIR, UPDATES_LOGS_DIR].forEach(dir => {
@@ -124,6 +125,44 @@ function getManifestAssetNames(channel: string): string[] {
     : [`latest-${channel}.json`];
 }
 
+function readJsonFile(filePath: string): any | null {
+  try {
+    if (!runWithoutAsar(() => fs.existsSync(filePath))) return null;
+    return JSON.parse(runWithoutAsar(() => fs.readFileSync(filePath, 'utf8')));
+  } catch {
+    return null;
+  }
+}
+
+function getStoredUpdateVersion(): string | null {
+  const applied = readJsonFile(APPLIED_UPDATE_PATH);
+  if (applied?.version) return String(applied.version);
+
+  const updateState = readJsonFile(path.join(UPDATES_DIR, 'update_state.json'));
+  if (updateState?.status === 'success' && updateState.version) {
+    return String(updateState.version);
+  }
+
+  return null;
+}
+
+function persistAppliedUpdateVersion(version?: string) {
+  if (!version) return;
+  runWithoutAsar(() => fs.writeFileSync(
+    APPLIED_UPDATE_PATH,
+    JSON.stringify({ version, appliedAt: new Date().toISOString() }, null, 2),
+    'utf8'
+  ));
+}
+
+export function getEffectiveAppVersion(): string {
+  const electronVersion = app.getVersion();
+  const storedVersion = getStoredUpdateVersion();
+  if (storedVersion && compareVersions(storedVersion, electronVersion) > 0) {
+    return storedVersion;
+  }
+  return electronVersion;
+}
 // Helper to make HTTPS requests and follow redirects
 function httpsGetWithRedirects(url: string, headers: any = {}): Promise<{ statusCode: number; data: string; headers: any }> {
   return new Promise((resolve, reject) => {
@@ -226,7 +265,8 @@ function calculateFileSha256(filePath: string): Promise<string> {
 
 // Check for updates
 export async function checkForUpdates(channel: string): Promise<{ updateAvailable: boolean; manifest?: any; error?: string }> {
-  logUpdateEvent(`Checking for updates. Channel: ${channel}. Current version: ${app.getVersion()}`);
+  const currentVersion = getEffectiveAppVersion();
+  logUpdateEvent(`Checking for updates. Channel: ${channel}. Current version: ${currentVersion} (Electron: ${app.getVersion()})`);
   
   // Offline / Mock fallback: if user placed a mock manifest in AppData for testing, read that first
   const mockManifestPath = path.join(APP_DATA_PATH, `mock-manifest-${channel}.json`);
@@ -234,7 +274,6 @@ export async function checkForUpdates(channel: string): Promise<{ updateAvailabl
     try {
       const localData = runWithoutAsar(() => fs.readFileSync(mockManifestPath, 'utf8'));
       const manifest = JSON.parse(localData);
-      const currentVersion = app.getVersion();
       const updateAvailable = compareVersions(manifest.version, currentVersion) > 0;
       
       logUpdateEvent('Manifest loaded');
@@ -369,7 +408,6 @@ export async function checkForUpdates(channel: string): Promise<{ updateAvailabl
     logUpdateEvent(`Manifest sha256: ${manifest.sha256}`);
     logUpdateEvent(`Manifest asarUrl: ${manifest.asarUrl}`);
 
-    const currentVersion = app.getVersion();
     const updateAvailable = compareVersions(manifest.version, currentVersion) > 0;
     logUpdateEvent(`Online update check: version ${manifest.version} available (current: ${currentVersion}).`);
     return { updateAvailable, manifest };
@@ -589,16 +627,17 @@ export function rotateAndBackupAsar() {
 }
 
 // Install update package
-export async function installUpdatePackage(packagePath: string, isAsarOnly: boolean): Promise<{ success: boolean; error?: string }> {
+export async function installUpdatePackage(packagePath: string, isAsarOnly: boolean, manifest?: any): Promise<{ success: boolean; error?: string }> {
   logUpdateEvent('Install started');
   logUpdateEvent(`Installing update: ${packagePath}. ASAR-only: ${isAsarOnly}`);
+  const targetVersion = manifest?.version ? String(manifest.version).replace(/^v/i, '') : undefined;
   
   if (isAsarOnly) {
     try {
       if (!app.isPackaged) {
         logUpdateEvent('Running in development mode. Simulating ASAR update and restart.');
         const updateStatePath = path.join(UPDATES_DIR, 'update_state.json');
-        runWithoutAsar(() => fs.writeFileSync(updateStatePath, JSON.stringify({ status: 'installing', version: 'mock-dev' }), 'utf8'));
+        runWithoutAsar(() => fs.writeFileSync(updateStatePath, JSON.stringify({ status: 'installing', version: targetVersion || 'mock-dev' }), 'utf8'));
         setTimeout(() => {
           app.relaunch();
           app.exit(0);
@@ -637,7 +676,7 @@ export async function installUpdatePackage(packagePath: string, isAsarOnly: bool
       const currentPid = process.pid;
 
       // Write installing state
-      runWithoutAsar(() => fs.writeFileSync(updateStatePath, JSON.stringify({ status: 'installing', version: 'new-version' }), 'utf8'));
+      runWithoutAsar(() => fs.writeFileSync(updateStatePath, JSON.stringify({ status: 'installing', version: targetVersion }), 'utf8'));
 
       logUpdateEvent('Replacing app.asar');
       logUpdateEvent(`Generating rollback batch script at ${rollbackScriptPath}`);
@@ -717,7 +756,7 @@ if "!actualSize!" NEQ "!expectedSize!" (
 )
 
 :: Write success state
-echo {"status":"success"} > "${updateStatePath}"
+echo {"status":"success","version":"${targetVersion || ''}"} > "${updateStatePath}"
 echo [%DATE% %TIME%] [Updater] Update applied successfully. Restarting... >> "${UPDATE_LOG_PATH}"
 
 :: Restart application
@@ -888,9 +927,13 @@ exit /b 0
             fs.writeFileSync(rollbackFlagPath, 'Crash on startup', 'utf8');
           }
         } else {
-          fs.writeFileSync(updateStatePath, JSON.stringify({ status: 'success' }), 'utf8');
-          logUpdateEvent('Update succeeded. Application booted cleanly.');
+          fs.writeFileSync(updateStatePath, JSON.stringify({ status: 'success', version: state.version }), 'utf8');
+          persistAppliedUpdateVersion(state.version);
+          logUpdateEvent(`Update succeeded. Effective version: ${getEffectiveAppVersion()}.`);
         }
+      } else if (state.status === 'success') {
+        persistAppliedUpdateVersion(state.version);
+        logUpdateEvent(`Update succeeded. Effective version: ${getEffectiveAppVersion()}.`);
       }
     } catch (e: any) {
       logUpdateEvent(`Failed checking startup updates state: ${e.message}`);
@@ -1050,3 +1093,4 @@ export function repairDatabaseIntegrity(): { success: boolean; log: string[] } {
     return { success: false, log };
   }
 }
+

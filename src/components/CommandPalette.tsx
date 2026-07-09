@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 import * as Icons from 'lucide-react';
 import { getIconComponent } from '../iconRegistry';
@@ -44,6 +44,90 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
     }
   }, [isOpen]);
 
+  const filteredResults = useMemo(() => {
+    if (!isOpen) return [];
+
+    const searchItems: SearchResult[] = [];
+
+    for (const t of tasks) {
+      searchItems.push({
+        id: t.id,
+        title: t.title,
+        subtitle: `${lang === 'ru' ? 'Задача' : lang === 'uk' ? 'Завдання' : 'Task'} | Status: ${t.status}`,
+        type: 'task',
+        icon: 'CheckSquare',
+        action: () => {
+          setCurrentView('all_tasks');
+          setSelectedTask(t);
+          onClose();
+        }
+      });
+    }
+
+    for (const p of projects) {
+      searchItems.push({
+        id: p.id,
+        title: p.name,
+        subtitle: `${lang === 'ru' ? 'Проект' : lang === 'uk' ? 'Проект' : 'Project'} | ${p.description || ''}`,
+        type: 'project',
+        icon: p.icon || 'Folder',
+        action: () => {
+          setSelectedProjectViewId(p.id);
+          setCurrentView('all_tasks');
+          onClose();
+        }
+      });
+    }
+
+    for (const n of notes) {
+      searchItems.push({
+        id: n.id,
+        title: n.title,
+        subtitle: `${lang === 'ru' ? 'Заметка' : lang === 'uk' ? 'Нотатка' : 'Note'} | ${n.content.substring(0, 50)}...`,
+        type: 'note',
+        icon: 'StickyNote',
+        action: () => {
+          setCurrentView('notes');
+          onClose();
+        }
+      });
+    }
+
+    for (const p of prompts) {
+      searchItems.push({
+        id: p.id,
+        title: p.title,
+        subtitle: `${lang === 'ru' ? 'AI Промпт' : lang === 'uk' ? 'AI Промпт' : 'AI Prompt'} | Provider: ${p.provider}`,
+        type: 'prompt',
+        icon: 'Cpu',
+        action: () => {
+          setCurrentView('prompts');
+          onClose();
+        }
+      });
+    }
+
+    for (const r of releases) {
+      searchItems.push({
+        id: r.id,
+        title: `v${r.version} - ${r.name}`,
+        subtitle: `${lang === 'ru' ? 'Релиз' : lang === 'uk' ? 'Реліз' : 'Release'} | Status: ${r.status}`,
+        type: 'release',
+        icon: 'Rocket',
+        action: () => {
+          setCurrentView('roadmap');
+          onClose();
+        }
+      });
+    }
+
+    const q = query.toLowerCase().trim();
+    return searchItems.filter(item => {
+      if (!q) return true;
+      return item.title.toLowerCase().includes(q) || item.subtitle.toLowerCase().includes(q);
+    }).slice(0, 8);
+  }, [isOpen, tasks, projects, notes, prompts, releases, lang, query, setCurrentView, setSelectedTask, setSelectedProjectViewId, onClose]);
+
   // Handle outside click and Escape / Arrow keys shortcuts
   useEffect(() => {
     if (!isOpen) return;
@@ -60,15 +144,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
         setSelectedIndex(prev => (prev - 1 + filteredResults.length) % Math.max(1, filteredResults.length));
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        if (filteredResults[selectedIndex]) {
-          filteredResults[selectedIndex].action();
-        }
+        filteredResults[selectedIndex]?.action();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, query, selectedIndex]);
+  }, [isOpen, onClose, filteredResults, selectedIndex]);
 
   // Auto-scroll selected item into view
   useEffect(() => {
@@ -79,100 +161,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
   }, [selectedIndex]);
 
   if (!isOpen) return null;
-
-  // Build searchable items list
-  const searchItems: SearchResult[] = [];
-
-  // Tasks
-  tasks.forEach(t => {
-    searchItems.push({
-      id: t.id,
-      title: t.title,
-      subtitle: `${lang === 'ru' ? 'Задача' : lang === 'uk' ? 'Завдання' : 'Task'} | Status: ${t.status}`,
-      type: 'task',
-      icon: 'CheckSquare',
-      action: () => {
-        setSelectedTask(t);
-        onClose();
-      }
-    });
-  });
-
-  // Projects
-  projects.forEach(p => {
-    searchItems.push({
-      id: p.id,
-      title: p.name,
-      subtitle: `${lang === 'ru' ? 'Проект' : lang === 'uk' ? 'Проект' : 'Project'} | ${p.description || ''}`,
-      type: 'project',
-      icon: p.icon || 'Folder',
-      action: () => {
-        setSelectedProjectViewId(p.id);
-        setCurrentView('all_tasks');
-        setSelectedTask(null);
-        onClose();
-      }
-    });
-  });
-
-  // Notes
-  notes.forEach(n => {
-    searchItems.push({
-      id: n.id,
-      title: n.title,
-      subtitle: `${lang === 'ru' ? 'Заметка' : lang === 'uk' ? 'Нотатка' : 'Note'} | ${n.content.substring(0, 50)}...`,
-      type: 'note',
-      icon: 'StickyNote',
-      action: () => {
-        setCurrentView('notes');
-        setSelectedTask(null);
-        onClose();
-      }
-    });
-  });
-
-  // Prompts
-  prompts.forEach(p => {
-    searchItems.push({
-      id: p.id,
-      title: p.title,
-      subtitle: `${lang === 'ru' ? 'AI Промпт' : lang === 'uk' ? 'AI Промпт' : 'AI Prompt'} | Provider: ${p.provider}`,
-      type: 'prompt',
-      icon: 'Cpu',
-      action: () => {
-        setCurrentView('prompts');
-        setSelectedTask(null);
-        onClose();
-      }
-    });
-  });
-
-  // Releases / Roadmap
-  releases.forEach(r => {
-    searchItems.push({
-      id: r.id,
-      title: `v${r.version} - ${r.name}`,
-      subtitle: `${lang === 'ru' ? 'Релиз' : lang === 'uk' ? 'Реліз' : 'Release'} | Status: ${r.status}`,
-      type: 'release',
-      icon: 'Rocket',
-      action: () => {
-        setCurrentView('roadmap');
-        setSelectedTask(null);
-        onClose();
-      }
-    });
-  });
-
-  // Filter items matching search queries
-  const filteredResults = searchItems.filter(item => {
-    const q = query.toLowerCase().trim();
-    if (!q) return true;
-    return (
-      item.title.toLowerCase().includes(q) ||
-      item.subtitle.toLowerCase().includes(q)
-    );
-  }).slice(0, 8); // Limit to top 8 items for fast scrolling and layout stability
-
   const getIcon = (name: string, cls: string = "w-4 h-4 text-slate-400") => {
     const Icon = getIconComponent(name, Icons.FileText);
     return <Icon className={cls} />;
