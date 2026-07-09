@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useDeferredValue } from 'react';
 import { useStore } from '../store';
 import { getTranslation } from '../localization';
 import * as Icons from 'lucide-react';
@@ -21,6 +21,8 @@ export const ArchiveView: React.FC = () => {
   const [sortBy, setSortBy] = useState<'date' | 'priority'>('date');
   const [openStatusDropdownId, setOpenStatusDropdownId] = useState<string | null>(null);
   const [dropdownTriggerRect, setDropdownTriggerRect] = useState<DOMRect | null>(null);
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const projectMap = useMemo(() => new Map(projects.map(project => [project.id, project])), [projects]);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -163,8 +165,8 @@ export const ArchiveView: React.FC = () => {
       if (selectedProjectId !== 'all' && t.projectId !== selectedProjectId) return false;
 
       // Search query
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase().trim();
+      const query = deferredSearchQuery.toLowerCase().trim();
+      if (query) {
         const matchesTitle = t.title.toLowerCase().includes(query);
         const matchesDesc = (t.description || '').toLowerCase().includes(query);
         const matchesTags = (t.tags || []).some(tg => tg.toLowerCase().includes(query));
@@ -182,7 +184,7 @@ export const ArchiveView: React.FC = () => {
       }
       return new Date(b.updatedDate).getTime() - new Date(a.updatedDate).getTime();
     });
-  }, [tasks, statusFilter, selectedProjectId, searchQuery, sortBy]);
+  }, [tasks, statusFilter, selectedProjectId, deferredSearchQuery, sortBy]);
 
   // Local translations helper
   const t = (key: string) => {
@@ -371,7 +373,7 @@ export const ArchiveView: React.FC = () => {
       ) : (
         <div className="flex-1 overflow-y-auto pr-1 space-y-3.5 scrollbar-thin select-none performance-list">
           {archivedTasks.map((task) => {
-            const proj = projects.find(p => p.id === task.projectId);
+            const proj = projectMap.get(task.projectId);
             return (
               <div
                 key={task.id}

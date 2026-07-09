@@ -19,9 +19,12 @@ if (!fs.existsSync(templatePath)) {
 let template = fs.readFileSync(templatePath, 'utf8');
 const logoWithText = fs.existsSync(logoWithTextPath) ? fs.readFileSync(logoWithTextPath, 'utf8').trim() : '';
 const logoWithoutText = fs.existsSync(logoWithoutTextPath) ? fs.readFileSync(logoWithoutTextPath, 'utf8').trim() : '';
+const installerConfigJson = fs.readFileSync(configPath, 'utf8');
+const installerConfigBase64 = Buffer.from(installerConfigJson, 'utf8').toString('base64');
 
 template = template.replace('__LOGO_WITH_TEXT__', logoWithText);
 template = template.replace('__LOGO_WITHOUT_TEXT__', logoWithoutText);
+template = template.replace('__INSTALLER_CONFIG_BASE64__', installerConfigBase64);
 
 fs.writeFileSync(outputPath, template, 'utf8');
 
@@ -59,4 +62,4 @@ if (process.platform === 'win32') {
     ], { stdio: 'inherit' });
 }
 
-console.log('Built Flux Tasks Web Setup and copied installer-config.json.');
+console.log('Built Flux Tasks Web Setup with embedded installer-config.json.');

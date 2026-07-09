@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useDeferredValue } from 'react';
 import { useStore } from '../store';
 import { getTranslation } from '../localization';
 import * as Icons from 'lucide-react';
@@ -32,10 +32,12 @@ export const KanbanBoard: React.FC = () => {
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<TaskStatus | null>(null);
   const [sortBy, setSortBy] = useState<'date' | 'priority'>('date');
+  const deferredSearch = useDeferredValue(filters.search || '');
+  const projectMap = useMemo(() => new Map(projects.map(project => [project.id, project])), [projects]);
 
   // Determine currently active project and dynamic theme colors
   const activeProjectId = filters.projectId !== 'all' ? filters.projectId : selectedProjectViewId;
-  const activeProj = activeProjectId ? projects.find(p => p.id === activeProjectId) : null;
+  const activeProj = activeProjectId ? projectMap.get(activeProjectId) : null;
 
   const getProjectButtonGradient = (colorName?: string) => {
     switch (colorName) {
@@ -71,7 +73,7 @@ export const KanbanBoard: React.FC = () => {
   ];
 
   const getProjectDetails = (projId: string) => {
-    return projects.find(p => p.id === projId);
+    return projectMap.get(projId);
   };
 
   const getTypeGradients = (type: TaskType) => {
@@ -148,14 +150,17 @@ export const KanbanBoard: React.FC = () => {
   };
 
   // Filter & sort tasks dynamically (memoized for performance)
-  const activeTasks = useMemo(() => {
+  const tasksByStatus = useMemo(() => {
     const filtered = tasks.filter(t => {
       // Hide completed/cancelled tasks from regular lists
       if (t.status === 'completed' || t.status === 'cancelled') return false;
 
+      if (selectedProjectViewId && t.projectId !== selectedProjectViewId) return false;
+      if (selectedTagViewName && !t.tags.includes(selectedTagViewName)) return false;
+
       // Filter by global search query
-      if (filters.search?.trim()) {
-        const query = filters.search.toLowerCase().trim();
+      const query = deferredSearch.toLowerCase().trim();
+      if (query) {
         const matchesTitle = t.title.toLowerCase().includes(query);
         const matchesDesc = (t.description || '').toLowerCase().includes(query);
         const matchesSnippet = (t.codeSnippets || []).some(c => c.code.toLowerCase().includes(query) || c.title.toLowerCase().includes(query));
@@ -172,11 +177,13 @@ export const KanbanBoard: React.FC = () => {
       if (filters.projectId !== 'all' && t.projectId !== filters.projectId) return false;
       if (filters.priority !== 'all' && t.priority !== filters.priority) return false;
       if (filters.tag !== 'all' && !t.tags.includes(filters.tag)) return false;
+      if (filters.status !== 'all' && t.status !== filters.status) return false;
+      if (filters.type && filters.type !== 'all' && t.type !== filters.type) return false;
 
       return true;
     });
 
-    return filtered.sort((a, b) => {
+    const sorted = filtered.sort((a, b) => {
       if (sortBy === 'priority') {
         const weightA = getPriorityWeight(a.priority);
         const weightB = getPriorityWeight(b.priority);
@@ -184,7 +191,19 @@ export const KanbanBoard: React.FC = () => {
       }
       return new Date(b.updatedDate).getTime() - new Date(a.updatedDate).getTime();
     });
-  }, [tasks, filters, sortBy]);
+
+    return sorted.reduce<Record<TaskStatus, Task[]>>((acc, task) => {
+      acc[task.status].push(task);
+      return acc;
+    }, {
+      planned: [],
+      pending: [],
+      in_progress: [],
+      testing: [],
+      completed: [],
+      cancelled: []
+    });
+  }, [tasks, filters.projectId, filters.priority, filters.tag, filters.status, filters.type, deferredSearch, sortBy, selectedProjectViewId, selectedTagViewName]);
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     e.dataTransfer.setData('text/plain', taskId);
@@ -285,7 +304,7 @@ export const KanbanBoard: React.FC = () => {
       {/* Columns Container */}
       <div className="flex-1 overflow-x-auto flex gap-4 pb-4 items-start custom-scrollbar">
         {statusesList.map((st) => {
-          const colTasks = activeTasks.filter(t => t.status === st.value);
+          const colTasks = tasksByStatus[st.value];
           const isDragOver = dragOverStatus === st.value;
           
           return (

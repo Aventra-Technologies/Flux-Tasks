@@ -355,7 +355,7 @@ export const GitHubProjectDashboard: React.FC<GitHubProjectDashboardProps> = ({ 
       if (res.success) {
         showToast(lang === 'ru' ? 'Действие выполнено!' : 'Git action completed!', 'success');
         if (res.output) {
-          console.log(`Git output (${actionName}):`, res.output);
+          // Log output removed in production
         }
         loadGitStatus();
       } else {

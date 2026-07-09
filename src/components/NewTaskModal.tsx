@@ -10,6 +10,7 @@ export const NewTaskModal: React.FC = () => {
     isCreateModalOpen,
     createModalInitialType,
     createModalInitialStatus,
+    selectedProjectViewId,
     projects,
     settings,
     setIsCreateModalOpen,
@@ -68,7 +69,8 @@ export const NewTaskModal: React.FC = () => {
         }))
       );
       
-      setProjectId(projects[0]?.id || 'unassigned');
+      const activeProjectExists = selectedProjectViewId && projects.some(project => project.id === selectedProjectViewId);
+      setProjectId(activeProjectExists ? selectedProjectViewId : (projects[0]?.id || 'unassigned'));
       setDraftPrompts([]);
       setDraftCodeSnippets([]);
       setDraftAttachments([]);
@@ -85,7 +87,7 @@ export const NewTaskModal: React.FC = () => {
       setNewCodeTitle('');
       setNewCodeContent('');
     }
-  }, [isCreateModalOpen, createModalInitialType, createModalInitialStatus, projects]);
+  }, [isCreateModalOpen, createModalInitialType, createModalInitialStatus, projects, selectedProjectViewId]);
 
   const handleSelectType = (type: TaskType) => {
     setTaskType(type);

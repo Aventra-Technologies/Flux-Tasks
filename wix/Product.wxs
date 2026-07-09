@@ -1,0 +1,68 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="Flux Tasks"
+           Manufacturer="Aventra Technologies"
+           Version="$(var.ProductVersion)"
+           ProductCode="$(var.ProductCode)"
+           UpgradeCode="8a7d5b12-9c3f-4e0a-8a4f-0f2c98d6c7b9"
+           Language="1033"
+           Scope="perMachine"
+           InstallerVersion="500">
+
+    <!-- Major Upgrade configuration: enables upgrading over previous versions and removing them -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+
+    <!-- Embed all cabinet files directly inside the MSI installer for a self-contained package -->
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- Application Icon in Add/Remove Programs -->
+    <Icon Id="ARPPRODUCTICON" SourceFile="wix\icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="ARPPRODUCTICON" />
+    
+    <!-- Add/Remove Programs (ARP) Metadata & Options -->
+    <Property Id="ARPCONTACT" Value="Aventra Technologies" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/Flux-Tasks/Flux-Tasks/issues" />
+    <Property Id="ARPURLINFOABOUT" Value="https://aventra.technology" />
+    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/Flux-Tasks/Flux-Tasks" />
+    <Property Id="ARPCOMMENTS" Value="Local-first desktop task manager with GitHub integration and background reminders." />
+    
+    <!-- Disable Repair and Modify options to ensure a clean Add/Remove Programs entry -->
+    <Property Id="ARPNOREPAIR" Value="1" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+
+    <!-- Optimize silent deployment parameters -->
+    <Property Id="REBOOT" Value="ReallySuppress" />
+    <Property Id="MSIFASTINSTALL" Value="7" />
+
+    <!-- Set the App Install Location Registry Property for store detection and Intune compliance -->
+    <SetProperty Id="ARPINSTALLLOCATION" Value="[INSTALLFOLDER]" After="CostFinalize" />
+
+    <!-- Directory structure definition -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Flux Tasks" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder" />
+    <StandardDirectory Id="DesktopFolder" />
+
+    <!-- Store Installation Registry Marker (machine-wide, HKLM) -->
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="StoreRegistryMarker" Guid="f3b9c9f7-7a1e-45de-9c59-bfbe93fe3750">
+        <RegistryKey Root="HKLM" Key="Software\Aventra Technologies\Flux Tasks">
+          <RegistryValue Name="StoreInstall" Type="integer" Value="1" KeyPath="yes" />
+          <RegistryValue Name="DisplayName" Type="string" Value="Flux Tasks" />
+          <RegistryValue Name="DisplayVersion" Type="string" Value="$(var.ProductVersion)" />
+          <RegistryValue Name="Publisher" Type="string" Value="Aventra Technologies" />
+          <RegistryValue Name="ProductCode" Type="string" Value="$(var.ProductCode)" />
+          <RegistryValue Name="UpgradeCode" Type="string" Value="{8A7D5B12-9C3F-4E0A-8A4F-0F2C98D6C7B9}" />
+          <RegistryValue Name="InstallLocation" Type="string" Value="[INSTALLFOLDER]" />
+        </RegistryKey>
+      </Component>
+    </DirectoryRef>
+
+    <!-- Features selection -->
+    <Feature Id="Main">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="StoreRegistryMarker" />
+    </Feature>
+  </Package>
+</Wix>

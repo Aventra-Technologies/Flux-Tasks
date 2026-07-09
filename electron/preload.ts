@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('api', {
   selectFile: (options: any) => ipcRenderer.invoke('dialog:selectFile'),
   selectDirectory: () => ipcRenderer.invoke('dialog:selectDirectory'),
   selectSaveFile: (options: any) => ipcRenderer.invoke('dialog:selectSaveFile'),
+  resizeProjectIcon: (sourcePath: string) => ipcRenderer.invoke('project:resizeIcon', sourcePath),
 
   // Import / Export
   exportData: (format: 'json' | 'md' | 'html' | 'csv', data: any) => ipcRenderer.invoke('data:export', format, data),
@@ -78,7 +79,10 @@ contextBridge.exposeInMainWorld('api', {
   getCurrentVersion: () => ipcRenderer.invoke('update:getVersion'),
   checkRollback: () => ipcRenderer.invoke('update:checkRollback'),
   app: {
-    getVersion: () => ipcRenderer.invoke('app:getVersion')
+    getVersion: () => ipcRenderer.invoke('app:getVersion'),
+    getSystemInfo: () => ipcRenderer.invoke('app:getSystemInfo'),
+    openFolder: () => ipcRenderer.invoke('app:openFolder'),
+    openDataFolder: () => ipcRenderer.invoke('app:openDataFolder')
   },
 
   // Crash Recovery

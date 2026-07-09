@@ -12,7 +12,7 @@ import {
   loadSettings, saveSetting, loadScheduledReleases, saveScheduledRelease, updateScheduledReleaseStatus,
   clearAllDatabase, copyAttachmentFile,
   createBackupFile, getBackupsList, restoreBackupFile, deleteBackupFile,
-  loadAllActivityLogs, getDatabasePath, runBackupRetention
+  loadAllActivityLogs, getDatabasePath, runBackupRetention, getSqliteVersion
 } from './database';
 import {
   checkForUpdates,
@@ -264,47 +264,52 @@ function initAutoBackupTimer() {
 app.whenReady().then(() => {
   recoveryModeActive = initStartupCrashDetector();
 
-  // Debug logging
-  const packageJsonPath = path.join(app.getAppPath(), 'package.json');
-  let packageVersion = 'unknown';
-  try {
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    packageVersion = packageJson.version;
-  } catch (e) {
-    try {
-      const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8'));
-      packageVersion = packageJson.version;
-    } catch (err) {}
-  }
-  console.log(`App version from Electron: ${app.getVersion()}`);
-  console.log(`Package version: ${packageVersion}`);
-  console.log(`Displayed version: ${app.getVersion()}`);
-  logToFile(`App version from Electron: ${app.getVersion()}`);
-  logToFile(`Package version: ${packageVersion}`);
-  logToFile(`Displayed version: ${app.getVersion()}`);
-
-  checkStartupUpdates(recoveryModeActive);
+  // Initialize SQLite database (required before window loads to allow instant IPC DB calls)
   initDatabase();
 
-  // Run startup auto backup & retention checks
-  try {
-    checkAndRunAutoBackup();
-    runBackupRetention();
-  } catch (err) {
-    console.error('Failed to run startup backup routines', err);
-  }
-  
-  // Initialize auto backup schedule timer
-  initAutoBackupTimer();
-
+  // Create main window immediately for fast app presentation
   createWindow();
-  initNotificationService(() => mainWindow);
-  configureTray(() => mainWindow, () => {
-    isQuitting = true;
-    app.quit();
-  });
-  startReminderService(() => mainWindow);
-  startReleaseScheduler();
+
+  // Defer heavy or non-blocking startup routines
+  setTimeout(() => {
+    // Debug logging (delayed)
+    const packageJsonPath = path.join(app.getAppPath(), 'package.json');
+    let packageVersion = 'unknown';
+    try {
+      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+      packageVersion = packageJson.version;
+    } catch (e) {
+      try {
+        const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8'));
+        packageVersion = packageJson.version;
+      } catch (err) {}
+    }
+    logToFile(`App version from Electron: ${app.getVersion()}`);
+    logToFile(`Package version: ${packageVersion}`);
+    logToFile(`Displayed version: ${app.getVersion()}`);
+
+    try {
+      checkStartupUpdates(recoveryModeActive);
+    } catch (e) {}
+
+    // Run startup auto backup & retention checks
+    try {
+      checkAndRunAutoBackup();
+      runBackupRetention();
+    } catch (err) {
+      console.error('Failed to run startup backup routines', err);
+    }
+    
+    // Initialize services
+    initAutoBackupTimer();
+    initNotificationService(() => mainWindow);
+    configureTray(() => mainWindow, () => {
+      isQuitting = true;
+      app.quit();
+    });
+    startReminderService(() => mainWindow);
+    startReleaseScheduler();
+  }, 100);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -914,6 +919,87 @@ ipcMain.handle('update:getVersion', () => {
 ipcMain.handle('app:getVersion', () => {
   return app.getVersion();
 });
+
+ipcMain.handle('app:getSystemInfo', async () => {
+  const os = require('os');
+  let osName = 'Windows';
+  let gpuName = 'Unknown GPU';
+
+  // 1. Get OS Name cleanly
+  try {
+    if (process.platform === 'win32') {
+      const { execSync } = require('child_process');
+      const caption = execSync('powershell -NoProfile -Command "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; (Get-CimInstance Win32_OperatingSystem).Caption"', { encoding: 'utf8' }).trim();
+      if (caption) {
+        osName = caption.replace(/^Microsoft\s+/, '').replace(/^Майкрософт\s+/, '');
+      } else {
+        osName = `Windows NT ${os.release()}`;
+      }
+    } else if (process.platform === 'darwin') {
+      osName = `macOS ${os.release()}`;
+    } else {
+      osName = `${os.type()} ${os.release()}`;
+    }
+  } catch (e) {
+    osName = `${os.type()} ${os.release()}`;
+  }
+
+  // 2. Get GPU Name cleanly
+  try {
+    if (process.platform === 'win32') {
+      const { execSync } = require('child_process');
+      const gpuRaw = execSync('powershell -NoProfile -Command "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; (Get-CimInstance Win32_VideoController).Name"', { encoding: 'utf8' });
+      const gpus = gpuRaw
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean);
+      if (gpus.length > 0) {
+        gpuName = gpus.join(', ');
+      }
+    }
+  } catch (e) {}
+
+  // 3. Clean CPU and GPU names
+  const cpus = os.cpus();
+  let cpuName = cpus && cpus[0] ? cpus[0].model : 'Unknown CPU';
+  cpuName = cpuName
+    .replace(/\(R\)/g, '')
+    .replace(/\(TM\)/g, '')
+    .replace(/CPU/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  gpuName = gpuName
+    .replace(/\(R\)/g, '')
+    .replace(/\(TM\)/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // 4. Calculate RAM in GB
+  const ramGb = Math.round(os.totalmem() / (1024 * 1024 * 1024)) + ' GB';
+
+  return {
+    os: osName,
+    arch: os.arch(),
+    cpu: cpuName,
+    ram: ramGb,
+    gpu: gpuName,
+    isMicrosoftStore: !!(process as any).windowsStore
+  };
+});
+
+ipcMain.handle('app:openFolder', async () => {
+  const folderPath = path.dirname(app.getPath('exe'));
+  await shell.openPath(folderPath);
+  return { success: true };
+});
+
+ipcMain.handle('app:openDataFolder', async () => {
+  const folderPath = app.getPath('userData');
+  await shell.openPath(folderPath);
+  return { success: true };
+});
+
 
 ipcMain.handle('update:checkRollback', () => {
   return checkRollbackOccurred();

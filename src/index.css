@@ -25,6 +25,7 @@
   --accent: #3bd2ff;
   --accent-gradient: linear-gradient(135deg, #007dff 0%, #ff52df 100%);
   --glass-blur: 36px;
+  --glass-blur-effective: clamp(12px, var(--glass-blur), 28px);
   --glass-opacity: 0.015;
   --radius-card: 18px;
   --sidebar-opacity: 0.03;
@@ -96,6 +97,7 @@ body,
 
 html {
   font-size: calc(14px * var(--font-scale)) !important;
+  text-rendering: optimizeLegibility;
 }
 
 /*
@@ -120,6 +122,12 @@ html {
   content-visibility: auto;
   contain: layout paint style;
   contain-intrinsic-size: auto 150px;
+}
+
+.scrollbar-thin,
+.custom-scrollbar {
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 /* Core GPU-Accelerated Animations */
@@ -176,13 +184,12 @@ html {
 /* Premium Liquid Glass Styles */
 .glass-panel {
   background: rgba(6, 12, 29, var(--glass-opacity));
-  backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur-effective));
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-card);
   box-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 0.03),
     0 16px 40px rgba(0, 0, 0, 0.3);
-  transform: translateZ(0);
 }
 
 .glass-panel-hover {
@@ -201,7 +208,7 @@ html {
 /* Glass Card styling - larger radius, soft shadow, subtle borders */
 .glass-card {
   background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur-effective));
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-card);
   box-shadow: 
@@ -209,7 +216,6 @@ html {
     0 12px 30px -10px rgba(0, 0, 0, 0.4);
   transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s, transform 0.3s;
   transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-  transform: translateZ(0);
 }
 
 .glass-card-hover:hover {

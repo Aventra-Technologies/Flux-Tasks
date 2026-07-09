@@ -14,8 +14,18 @@ export const TitleBar: React.FC = () => {
       }
     };
     checkState();
-    window.addEventListener('resize', checkState);
-    return () => window.removeEventListener('resize', checkState);
+
+    let timeoutId: any;
+    const handleResize = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(checkState, 100);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   if (!window.api) return null; // Render nothing if not in Electron context

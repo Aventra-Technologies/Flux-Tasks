@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useDeferredValue } from 'react';
 import { useStore } from '../store';
 import { getTranslation } from '../localization';
 import * as Icons from 'lucide-react';
@@ -25,6 +25,8 @@ export const TaskListView: React.FC = () => {
   const [dropdownTriggerRect, setDropdownTriggerRect] = useState<DOMRect | null>(null);
   const [sortBy, setSortBy] = useState<'date' | 'priority' | 'deadline'>('date');
   const [deadlineFilter, setDeadlineFilter] = useState<'all' | 'today' | 'soon' | 'overdue' | 'none'>('all');
+  const deferredSearch = useDeferredValue(filters.search || '');
+  const projectMap = useMemo(() => new Map(projects.map(project => [project.id, project])), [projects]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -48,7 +50,7 @@ export const TaskListView: React.FC = () => {
 
   // Determine currently active project and dynamic theme colors
   const activeProjectId = filters.projectId !== 'all' ? filters.projectId : selectedProjectViewId;
-  const activeProj = activeProjectId ? projects.find(p => p.id === activeProjectId) : null;
+  const activeProj = activeProjectId ? projectMap.get(activeProjectId) : null;
 
   const getActiveProjectIconColor = (colorName?: string) => {
     switch (colorName) {
@@ -224,8 +226,8 @@ export const TaskListView: React.FC = () => {
       }
 
       // Filter by top search bar query
-      if (filters.search?.trim()) {
-        const query = filters.search.toLowerCase().trim();
+      const query = deferredSearch.toLowerCase().trim();
+      if (query) {
         const matchesTitle = t.title.toLowerCase().includes(query);
         const matchesDesc = (t.description || '').toLowerCase().includes(query);
         const matchesSnippet = (t.codeSnippets || []).some(c => c.code.toLowerCase().includes(query) || c.title.toLowerCase().includes(query));
@@ -266,7 +268,7 @@ export const TaskListView: React.FC = () => {
       }
       return new Date(b.updatedDate).getTime() - new Date(a.updatedDate).getTime();
     });
-  }, [tasks, filters, sortBy, deadlineFilter, selectedProjectViewId, selectedTagViewName]);
+  }, [tasks, filters.projectId, filters.priority, filters.status, filters.type, deferredSearch, sortBy, deadlineFilter, selectedProjectViewId, selectedTagViewName]);
 
   return (
     <div className="flex-1 overflow-hidden flex flex-col h-full p-6 select-none">
@@ -376,7 +378,7 @@ export const TaskListView: React.FC = () => {
       ) : (
         <div className="flex-1 overflow-y-auto pr-1 space-y-3.5 scrollbar-thin select-none performance-list">
           {activeTasks.map((t) => {
-            const proj = projects.find(p => p.id === t.projectId);
+            const proj = projectMap.get(t.projectId);
             return (
               <div
                 key={t.id}

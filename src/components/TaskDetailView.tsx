@@ -5,6 +5,7 @@ import * as Icons from 'lucide-react';
 import { Task, ChecklistItem, CodeSnippet, PromptItem, Attachment, TaskPriority, TaskStatus, TaskType } from '../types';
 import { MarkdownViewer } from './MarkdownViewer';
 import { getIconComponent } from '../iconRegistry';
+import { formatActivityDetails, formatActivityTimestamp } from '../activityLocalization';
 
 export const TaskDetailView: React.FC = () => {
   const {
@@ -57,6 +58,23 @@ export const TaskDetailView: React.FC = () => {
   }, [selectedTask]);
 
   if (!selectedTask) return null;
+  const hasUnsavedDocs = isEditingDocs && (
+    editedTitle.trim() !== selectedTask.title ||
+    editedDesc.trim() !== (selectedTask.description || '') ||
+    editedNotes.trim() !== (selectedTask.notes || '')
+  );
+
+  const closeTaskDetail = () => {
+    if (hasUnsavedDocs) {
+      const message = lang === 'ru'
+        ? 'Есть несохранённые изменения задачи. Закрыть без сохранения?'
+        : lang === 'uk'
+          ? 'Є незбережені зміни завдання. Закрити без збереження?'
+          : 'This task has unsaved changes. Close without saving?';
+      if (!confirm(message)) return;
+    }
+    setSelectedTask(null);
+  };
 
   // Sync basic field changes directly
   const handleFieldChange = (field: keyof Task, value: any, logMsg: string) => {
@@ -321,7 +339,7 @@ export const TaskDetailView: React.FC = () => {
       {/* Top action header */}
       <div className="p-4 border-b border-white/5 bg-slate-900/30 flex items-center justify-between shrink-0 select-none">
         <button
-          onClick={() => setSelectedTask(null)}
+          onClick={closeTaskDetail}
           className="flex items-center gap-1.5 py-1 px-2.5 rounded-lg btn-secondary text-xs font-semibold text-slate-300 hover:text-white transition-colors cursor-pointer"
         >
           <Icons.ChevronLeft className="w-4 h-4" />
@@ -928,11 +946,9 @@ export const TaskDetailView: React.FC = () => {
                 <div key={h.id} className="flex gap-2.5">
                   <div className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400" />
                   <div>
-                    <div className="text-[10px] text-slate-200 leading-snug">{h.details}</div>
+                    <div className="text-[10px] text-slate-200 leading-snug">{formatActivityDetails(h.action, h.details, projects, lang)}</div>
                     <div className="text-[8px] font-mono text-slate-500 mt-0.5">
-                      {new Date(h.timestamp).toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-US', {
-                        hour: '2-digit', minute: '2-digit'
-                      })}
+                      {formatActivityTimestamp(h.timestamp, lang, false)}
                     </div>
                   </div>
                 </div>

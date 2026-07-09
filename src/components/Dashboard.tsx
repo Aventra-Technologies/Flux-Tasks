@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useStore } from '../store';
 import { getTranslation } from '../localization';
 import * as Icons from 'lucide-react';
@@ -53,11 +53,21 @@ export const Dashboard: React.FC = () => {
   const safeProjects = Array.isArray(projects) ? projects : [];
   const safeReleases = Array.isArray(releases) ? releases : [];
   const safeActivityLogs = Array.isArray(activityLogs) ? activityLogs : [];
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const projectMap = useMemo(() => new Map(safeProjects.map(project => [project.id, project])), [safeProjects]);
   const deadlineTasks = useMemo(() => safeTasks
     .filter(t => t.dueAt && t.status !== 'completed' && t.status !== 'cancelled')
     .sort((a, b) => new Date(a.dueAt!).getTime() - new Date(b.dueAt!).getTime()), [tasks]);
-  const overdueTasks = deadlineTasks.filter(t => new Date(t.dueAt!).getTime() < Date.now());
-  const upcomingDeadlineTasks = deadlineTasks.filter(t => new Date(t.dueAt!).getTime() >= Date.now()).slice(0, 5);
+  const overdueTasks = useMemo(() => deadlineTasks.filter(t => new Date(t.dueAt!).getTime() < now), [deadlineTasks, now]);
+  const upcomingDeadlineTasks = useMemo(() => deadlineTasks.filter(t => new Date(t.dueAt!).getTime() >= now).slice(0, 5), [deadlineTasks, now]);
 
   // Custom greeting based on time of day
   const getGreeting = () => {
@@ -80,9 +90,14 @@ export const Dashboard: React.FC = () => {
     let pending = 0;
     const focusTasks: Task[] = [];
     const tasksById = new Map<string, Task>();
+    const projectStats = new Map<string, { total: number; completed: number }>();
 
     for (const task of safeTasks) {
       tasksById.set(task.id, task);
+      const currentProjectStats = projectStats.get(task.projectId) || { total: 0, completed: 0 };
+      currentProjectStats.total += 1;
+      if (task.status === 'completed') currentProjectStats.completed += 1;
+      projectStats.set(task.projectId, currentProjectStats);
       if (task.status === 'in_progress' || task.status === 'testing') active += 1;
       if (task.status === 'completed') completed += 1;
       if (task.status === 'pending' || task.status === 'planned') pending += 1;
@@ -120,7 +135,8 @@ export const Dashboard: React.FC = () => {
       pct,
       upcoming,
       focusTasks,
-      recent
+      recent,
+      projectStats
     };
   }, [tasks, releases, activityLogs]);
 
@@ -132,7 +148,8 @@ export const Dashboard: React.FC = () => {
     pct: completionPercentage = 0, 
     upcoming: upcomingReleases = [], 
     focusTasks = [], 
-    recent: recentActivities = [] 
+    recent: recentActivities = [],
+    projectStats = new Map<string, { total: number; completed: number }>()
   } = stats || {};
 
   const getRelativeTime = (isoString: string) => {
@@ -317,9 +334,9 @@ export const Dashboard: React.FC = () => {
             {(safeProjects ?? []).length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {(safeProjects ?? []).slice(0, 4).map(p => {
-                  const projTasks = safeTasks.filter(t => t.projectId === p.id);
-                  const projTasksCount = projTasks.length;
-                  const projCompleted = projTasks.filter(t => t.status === 'completed').length;
+                  const projectStat = projectStats.get(p.id) || { total: 0, completed: 0 };
+                  const projTasksCount = projectStat.total;
+                  const projCompleted = projectStat.completed;
                   const projCompletePercent = projTasksCount > 0 ? Math.round((projCompleted / projTasksCount) * 100) : 0;
                   const hexColor = colorMap[p.color] || '#cbd5e1';
 
@@ -398,7 +415,7 @@ export const Dashboard: React.FC = () => {
                         <div className="min-w-0 flex-1">
                           <span className="text-xs font-medium text-white truncate block accent-hover-text transition-colors">{t.title}</span>
                           <span className="text-[10px] text-slate-500 truncate block mt-0.5">
-                            {t.projectId ? safeProjects.find(p => p.id === t.projectId)?.name || 'General' : 'General'}
+                            {t.projectId ? projectMap.get(t.projectId)?.name || 'General' : 'General'}
                           </span>
                         </div>
                       </div>

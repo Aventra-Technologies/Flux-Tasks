@@ -16,7 +16,10 @@ namespace FluxTasks.WebInstaller
 {
     internal sealed class InstallerConfig
     {
+        private const string EmbeddedConfigBase64 = "__INSTALLER_CONFIG_BASE64__";
+
         public string Version = "1.1.20";
+        public string ManifestUrl = "";
         public string PrimaryUrl = "";
         public string MirrorUrl = "";
         public string ExpectedSha256 = "";
@@ -25,11 +28,28 @@ namespace FluxTasks.WebInstaller
         public static InstallerConfig Load(string path)
         {
             if (!File.Exists(path))
-                throw new FileNotFoundException("installer-config.json was not found.", path);
+                return LoadEmbedded();
 
             string json = File.ReadAllText(path, Encoding.UTF8);
+            return FromJson(json);
+        }
+
+        public static InstallerConfig LoadEmbedded()
+        {
+            if (String.IsNullOrWhiteSpace(EmbeddedConfigBase64) ||
+                EmbeddedConfigBase64.StartsWith("__", StringComparison.Ordinal))
+                throw new InvalidDataException("Embedded installer configuration is missing.");
+
+            byte[] bytes = Convert.FromBase64String(EmbeddedConfigBase64);
+            string json = Encoding.UTF8.GetString(bytes);
+            return FromJson(json);
+        }
+
+        private static InstallerConfig FromJson(string json)
+        {
             InstallerConfig config = new InstallerConfig();
             config.Version = Read(json, "version", true);
+            config.ManifestUrl = Read(json, "manifestUrl", false);
             config.PrimaryUrl = Read(json, "primaryUrl", true);
             config.MirrorUrl = Read(json, "mirrorUrl", false);
             config.ExpectedSha256 = Read(json, "expectedSha256", true).Trim().ToLowerInvariant();
@@ -37,6 +57,9 @@ namespace FluxTasks.WebInstaller
 
             if (!Regex.IsMatch(config.ExpectedSha256, "^[a-f0-9]{64}$"))
                 throw new InvalidDataException("expectedSha256 must contain exactly 64 hexadecimal characters.");
+            if (!String.IsNullOrWhiteSpace(config.ManifestUrl) &&
+                !Uri.IsWellFormedUriString(config.ManifestUrl, UriKind.Absolute))
+                throw new InvalidDataException("manifestUrl must be an absolute URL.");
             if (!Uri.IsWellFormedUriString(config.PrimaryUrl, UriKind.Absolute))
                 throw new InvalidDataException("primaryUrl must be an absolute URL.");
             if (!String.IsNullOrWhiteSpace(config.MirrorUrl) &&
@@ -46,6 +69,68 @@ namespace FluxTasks.WebInstaller
                 throw new InvalidDataException("fileName must not contain a path.");
 
             return config;
+        }
+
+        public bool TryApplyLatestManifest(Action<string> log)
+        {
+            if (String.IsNullOrWhiteSpace(ManifestUrl)) return false;
+
+            try
+            {
+                Log(log, "Fetching latest release manifest: " + ManifestUrl);
+                string json = DownloadText(ManifestUrl, "FluxTasksInstaller/" + Version);
+                string version = Read(json, "version", true);
+                string packageUrl = Read(json, "packageUrl", true);
+                string packageMirrorUrl = Read(json, "packageMirrorUrl", false);
+                string packageSha256 = Read(json, "packageSha256", true).Trim().ToLowerInvariant();
+
+                if (!Regex.IsMatch(packageSha256, "^[a-f0-9]{64}$"))
+                    throw new InvalidDataException("packageSha256 must contain exactly 64 hexadecimal characters.");
+                if (!Uri.IsWellFormedUriString(packageUrl, UriKind.Absolute))
+                    throw new InvalidDataException("packageUrl must be an absolute URL.");
+                if (!String.IsNullOrWhiteSpace(packageMirrorUrl) &&
+                    !Uri.IsWellFormedUriString(packageMirrorUrl, UriKind.Absolute))
+                    throw new InvalidDataException("packageMirrorUrl must be an absolute URL.");
+
+                Version = version;
+                PrimaryUrl = packageUrl;
+                MirrorUrl = packageMirrorUrl;
+                ExpectedSha256 = packageSha256;
+                Log(log, "Latest release manifest applied. Version: " + Version);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log(log, "Latest release manifest unavailable; using bundled config. Error: " + ex.Message);
+                return false;
+            }
+        }
+
+        private static string DownloadText(string url, string userAgent)
+        {
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
+            request.Method = "GET";
+            request.UserAgent = userAgent;
+            request.AllowAutoRedirect = true;
+            request.MaximumAutomaticRedirections = 10;
+            request.Timeout = 15000;
+            request.ReadWriteTimeout = 30000;
+            request.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
+
+            using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+            {
+                int statusCode = (int)response.StatusCode;
+                if (statusCode < 200 || statusCode >= 300)
+                    throw new WebException("Unexpected HTTP status: " + statusCode);
+                using (Stream stream = response.GetResponseStream())
+                using (StreamReader reader = new StreamReader(stream, Encoding.UTF8))
+                    return reader.ReadToEnd();
+            }
+        }
+
+        private static void Log(Action<string> log, string message)
+        {
+            if (log != null) log(message);
         }
 
         private static string Read(string json, string key, bool required)
@@ -511,7 +596,16 @@ namespace FluxTasks.WebInstaller
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "installer-config.json");
             try
             {
-                config = InstallerConfig.Load(path);
+                if (File.Exists(path))
+                {
+                    config = InstallerConfig.Load(path);
+                    AppendLog(logPath, "Loaded installer config from file: " + path);
+                }
+                else
+                {
+                    config = InstallerConfig.LoadEmbedded();
+                    AppendLog(logPath, "Loaded embedded installer config.");
+                }
                 installedVersion = config.Version;
                 string downloadDir = Path.Combine(appRoot, "downloads");
                 partPath = Path.Combine(downloadDir, config.FileName + ".part");
@@ -557,6 +651,7 @@ namespace FluxTasks.WebInstaller
             AppendLog(logPath, "64-bit OS: " + Environment.Is64BitOperatingSystem);
             if (config != null)
             {
+                AppendLog(logPath, "Manifest URL: " + config.ManifestUrl);
                 AppendLog(logPath, "Download URL: " + config.PrimaryUrl);
                 AppendLog(logPath, "Mirror URL: " + config.MirrorUrl);
             }
@@ -1043,6 +1138,11 @@ namespace FluxTasks.WebInstaller
             try
             {
                 AppendLog(logPath, "Installation started.");
+                if (config.TryApplyLatestManifest(delegate(string message) { AppendLog(logPath, message); }))
+                {
+                    installedVersion = config.Version;
+                    SafeInvalidate();
+                }
                 liveStatus = "download";
                 AddUiLog("Download started");
                 DownloadResult result = downloader.Download(partPath, finalPath);
@@ -1346,6 +1446,10 @@ namespace FluxTasks.WebInstaller
                 try
                 {
                     InstallerConfig testConfig = InstallerConfig.Load(args[1]);
+                    testConfig.TryApplyLatestManifest(delegate(string message) {
+                        string outputDirForLog = args.Length >= 3 ? args[2] : AppDomain.CurrentDomain.BaseDirectory;
+                        InstallerForm.AppendLog(Path.Combine(outputDirForLog, "download-test.log"), message);
+                    });
                     string outputDir = args[2];
                     Directory.CreateDirectory(outputDir);
                     string testLog = Path.Combine(outputDir, "download-test.log");

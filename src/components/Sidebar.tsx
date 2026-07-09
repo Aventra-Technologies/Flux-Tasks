@@ -92,12 +92,14 @@ export const Sidebar: React.FC = () => {
   const [newProjName, setNewProjName] = useState('');
   const [newProjColor, setNewProjColor] = useState('indigo');
   const [newProjIcon, setNewProjIcon] = useState('Folder');
+  const [newProjIconImage, setNewProjIconImage] = useState('');
 
   // Edit Project State
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editProjName, setEditProjName] = useState('');
   const [editProjColor, setEditProjColor] = useState('indigo');
   const [editProjIcon, setEditProjIcon] = useState('Folder');
+  const [editProjIconImage, setEditProjIconImage] = useState('');
   const [editProjGithubOwner, setEditProjGithubOwner] = useState('');
   const [editProjGithubRepo, setEditProjGithubRepo] = useState('');
   const [editProjGithubDefaultBranch, setEditProjGithubDefaultBranch] = useState('main');
@@ -198,10 +200,11 @@ export const Sidebar: React.FC = () => {
   const handleAddNewProject = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProjName.trim()) return;
-    addProject(newProjName.trim(), 'Local SQLite project workspace', newProjColor, newProjIcon, '');
+    addProject(newProjName.trim(), 'Local SQLite project workspace', newProjColor, newProjIcon, '', newProjIconImage);
     setNewProjName('');
     setNewProjColor('indigo');
     setNewProjIcon('Folder');
+    setNewProjIconImage('');
     setIsNewProjectOpen(false);
   };
 
@@ -211,6 +214,7 @@ export const Sidebar: React.FC = () => {
     setEditProjName(proj.name);
     setEditProjColor(proj.color);
     setEditProjIcon(proj.icon);
+    setEditProjIconImage(proj.iconImage || '');
     setEditProjGithubOwner(proj.githubOwner || '');
     setEditProjGithubRepo(proj.githubRepo || '');
     setEditProjGithubDefaultBranch(proj.githubDefaultBranch || 'main');
@@ -233,6 +237,7 @@ export const Sidebar: React.FC = () => {
       description: existing?.description || 'Local SQLite project workspace',
       color: editProjColor,
       icon: editProjIcon,
+      iconImage: editProjIconImage,
       emoji: '',
       status: existing?.status || 'active',
       pinned: existing?.pinned || false,
@@ -267,6 +272,26 @@ export const Sidebar: React.FC = () => {
   const getIcon = (name: string, cls: string = "w-4 h-4 shrink-0") => {
     const Icon = PROJECT_ICONS[name] || Folder;
     return <Icon className={cls} />;
+  };
+
+  const selectProjectIconImage = async (target: 'new' | 'edit') => {
+    if (!window.api?.selectFile || !window.api?.resizeProjectIcon) return;
+    const filePath = await window.api.selectFile({
+      properties: ['openFile'],
+      filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp'] }]
+    });
+    if (!filePath) return;
+    const result = await window.api.resizeProjectIcon(filePath);
+    if (!result.success || !result.dataUrl) return;
+    if (target === 'new') setNewProjIconImage(result.dataUrl);
+    else setEditProjIconImage(result.dataUrl);
+  };
+
+  const renderProjectIcon = (proj: Project) => {
+    if (proj.iconImage) {
+      return <img src={proj.iconImage} alt="" className="w-4 h-4 shrink-0 rounded object-cover" />;
+    }
+    return getIcon(proj.icon, "w-4 h-4 shrink-0");
   };
 
   return (
@@ -549,7 +574,7 @@ export const Sidebar: React.FC = () => {
                     title={p.name}
                   >
                     <span className={`${colorMap[p.color] || 'text-slate-400'} shrink-0`}>
-                      {getIcon(p.icon, "w-4 h-4")}
+                      {p.iconImage ? <img src={p.iconImage} alt="" className="w-4 h-4 rounded object-cover" /> : getIcon(p.icon, "w-4 h-4")}
                     </span>
                     <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-amber-400" />
                   </button>
@@ -703,6 +728,26 @@ export const Sidebar: React.FC = () => {
                 </div>
               </div>
 
+              <div className="space-y-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-300">{lang === 'ru' ? 'Своя иконка' : lang === 'uk' ? 'Власна іконка' : 'Custom Icon'}</div>
+                    <div className="text-[9px] text-slate-500">{lang === 'ru' ? 'Изображение будет уменьшено до 128x128.' : lang === 'uk' ? 'Зображення буде зменшено до 128x128.' : 'Image will be resized to 128x128.'}</div>
+                  </div>
+                  {newProjIconImage && <img src={newProjIconImage} alt="" className="h-10 w-10 rounded-lg object-cover border border-white/10" />}
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => selectProjectIconImage('new')} className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-[10px] text-slate-200 hover:bg-white/10">
+                    {lang === 'ru' ? 'Выбрать файл' : lang === 'uk' ? 'Вибрати файл' : 'Choose File'}
+                  </button>
+                  {newProjIconImage && (
+                    <button type="button" onClick={() => setNewProjIconImage('')} className="px-3 py-1.5 rounded-lg border border-rose-500/20 bg-rose-500/10 text-[10px] text-rose-300 hover:bg-rose-500/20">
+                      {lang === 'ru' ? 'Убрать' : lang === 'uk' ? 'Прибрати' : 'Remove'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
               <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
                 <button
                   type="button"
@@ -794,6 +839,26 @@ export const Sidebar: React.FC = () => {
                       </div>
                     );
                   })}
+                </div>
+              </div>
+
+              <div className="space-y-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-300">{lang === 'ru' ? 'Своя иконка' : lang === 'uk' ? 'Власна іконка' : 'Custom Icon'}</div>
+                    <div className="text-[9px] text-slate-500">{lang === 'ru' ? 'Изображение будет уменьшено до 128x128.' : lang === 'uk' ? 'Зображення буде зменшено до 128x128.' : 'Image will be resized to 128x128.'}</div>
+                  </div>
+                  {editProjIconImage && <img src={editProjIconImage} alt="" className="h-10 w-10 rounded-lg object-cover border border-white/10" />}
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => selectProjectIconImage('edit')} className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-[10px] text-slate-200 hover:bg-white/10">
+                    {lang === 'ru' ? 'Выбрать файл' : lang === 'uk' ? 'Вибрати файл' : 'Choose File'}
+                  </button>
+                  {editProjIconImage && (
+                    <button type="button" onClick={() => setEditProjIconImage('')} className="px-3 py-1.5 rounded-lg border border-rose-500/20 bg-rose-500/10 text-[10px] text-rose-300 hover:bg-rose-500/20">
+                      {lang === 'ru' ? 'Убрать' : lang === 'uk' ? 'Прибрати' : 'Remove'}
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -920,7 +985,7 @@ export const Sidebar: React.FC = () => {
       >
         <div className="flex items-center gap-2 truncate">
           <span className={`${colorMap[proj.color] || 'text-slate-400'} shrink-0`}>
-            {getIcon(proj.icon, "w-4 h-4 shrink-0")}
+            {renderProjectIcon(proj)}
           </span>
           <span className="truncate">{proj.name}</span>
         </div>

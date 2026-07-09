@@ -2,6 +2,7 @@ import React from 'react';
 import { useStore } from '../store';
 import { getTranslation } from '../localization';
 import * as Icons from 'lucide-react';
+import { VirtualList } from './VirtualList';
 
 export const HistoryView: React.FC = () => {
   const { activityLogs, settings } = useStore();
@@ -70,36 +71,41 @@ export const HistoryView: React.FC = () => {
       </div>
 
       {/* Timeline logs */}
-      <div className="space-y-4 max-w-2xl relative pl-6">
+      <div className="flex-1 overflow-hidden relative max-w-2xl pl-6">
         {/* Vertical line indicator */}
-        <div className="absolute left-[11px] top-2 bottom-2 w-[1px] bg-white/5" />
+        <div className="absolute left-[11px] top-2 bottom-2 w-[1px] bg-white/5 z-0" />
 
-        {activityLogs.map((log: any) => (
-          <div key={log.id} className="relative flex items-start gap-4 group">
-            
-            {/* Timeline dot/icon */}
-            <div className={`absolute left-[-23px] top-0.5 w-[22px] h-[22px] rounded-full border flex items-center justify-center bg-slate-950/80 z-10 ${getActionBg(log.action)}`}>
-              {getActionIcon(log.action)}
-            </div>
+        {activityLogs.length > 0 ? (
+          <VirtualList
+            items={activityLogs}
+            itemHeight={120}
+            containerHeight="calc(100vh - 200px)"
+            renderItem={(log: any) => {
+              return (
+                <div className="pb-4 pr-1 relative flex items-start gap-4 group h-[104px] overflow-hidden select-text">
+                  {/* Timeline dot/icon */}
+                  <div className={`absolute left-[-23px] top-0.5 w-[22px] h-[22px] rounded-full border flex items-center justify-center bg-slate-950/80 z-10 ${getActionBg(log.action)}`}>
+                    {getActionIcon(log.action)}
+                  </div>
 
-            {/* Content card */}
-            <div className="flex-1 p-3.5 rounded-xl border border-white/5 bg-slate-950/20 backdrop-blur-md space-y-1.5 transition-all hover:bg-slate-950/30 hover:border-white/10">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-[10px] font-mono text-slate-500">{formatTimestamp(log.timestamp)}</span>
-                <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/5 text-slate-400">{log.action}</span>
-              </div>
-              <p className="text-xs text-slate-200 leading-relaxed font-sans">{log.details}</p>
-              {log.taskId && (
-                <div className="text-[9px] font-mono text-slate-500">
-                  Task ID: <span className="text-slate-400">{log.taskId}</span>
+                  {/* Content card */}
+                  <div className="flex-1 p-3.5 rounded-xl border border-white/5 bg-slate-950/20 backdrop-blur-md space-y-1.5 transition-all hover:bg-slate-950/30 hover:border-white/10 h-full flex flex-col justify-between overflow-hidden">
+                    <div className="flex items-center justify-between gap-4 shrink-0">
+                      <span className="text-[10px] font-mono text-slate-500">{formatTimestamp(log.timestamp)}</span>
+                      <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/5 text-slate-400">{log.action}</span>
+                    </div>
+                    <p className="text-xs text-slate-200 leading-relaxed font-sans truncate flex-grow">{log.details}</p>
+                    {log.taskId && (
+                      <div className="text-[9px] font-mono text-slate-500 shrink-0">
+                        Task ID: <span className="text-slate-400">{log.taskId}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-
-          </div>
-        ))}
-
-        {activityLogs.length === 0 && (
+              );
+            }}
+          />
+        ) : (
           <div className="text-center py-10 border border-dashed border-white/5 rounded-xl text-slate-500 text-xs">
             {lang === 'ru' ? 'История изменений пуста.' : lang === 'uk' ? 'Історія змін порожня.' : 'No activity logs found.'}
           </div>

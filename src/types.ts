@@ -108,6 +108,7 @@ export interface Project {
   description: string;
   color: string; // Tailwind tint: e.g. 'emerald', 'sky', 'rose', etc
   icon: string; // Lucide icon name
+  iconImage?: string;
   emoji?: string;
   status: 'active' | 'archived';
   pinned: boolean;
@@ -213,6 +214,7 @@ export interface ElectronAPI {
   selectFile: (options?: any) => Promise<string | null>;
   selectDirectory: () => Promise<string | null>;
   selectSaveFile: (options?: any) => Promise<string | null>;
+  resizeProjectIcon: (sourcePath: string) => Promise<{ success: boolean; dataUrl?: string; error?: string }>;
   exportData: (format: 'json' | 'md' | 'html' | 'csv', data: any) => Promise<{ success: boolean; filePath?: string; error?: string }>;
   importData: () => Promise<{ type: 'json' | 'md'; data: any } | null>;
   reminders: {
@@ -253,6 +255,16 @@ export interface ElectronAPI {
   checkRollback: () => Promise<{ occurred: boolean; error?: string }>;
   app: {
     getVersion: () => Promise<string>;
+    getSystemInfo: () => Promise<{
+      os: string;
+      arch: string;
+      cpu: string;
+      ram: string;
+      gpu: string;
+      isMicrosoftStore: boolean;
+    }>;
+    openFolder: () => Promise<{ success: boolean }>;
+    openDataFolder: () => Promise<{ success: boolean }>;
   };
 
   // Crash Recovery & Database Repairs

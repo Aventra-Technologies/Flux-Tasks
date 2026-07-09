@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { getTranslation } from '../localization';
 import * as Icons from 'lucide-react';
 import { NoteItem } from '../types';
+import { VirtualList } from './VirtualList';
 
 export const NotesView: React.FC = () => {
   const {
@@ -115,43 +116,49 @@ export const NotesView: React.FC = () => {
         </div>
 
         {/* Notes Items panel list */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {notes.map((n) => {
-            const isSel = selectedNote?.id === n.id;
-            return (
-              <div
-                key={n.id}
-                onClick={() => setSelectedNote(n)}
-                className={`p-3 rounded-lg border text-left cursor-pointer transition-all ${
-                  isSel 
-                    ? 'bg-white/[0.08] border-white/10 shadow-md text-white' 
-                    : 'border-transparent hover:bg-white/[0.04] hover:text-white'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-1.5">
-                  <div className="text-xs font-semibold truncate flex-1">{n.title || getTranslation(lang, 'untitledScratchpad')}</div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleDeleteNoteObj(n.id); }}
-                    className="p-0.5 rounded text-slate-500 hover:text-rose-400 hover:bg-white/5 transition-all"
-                  >
-                    <Icons.Trash2 className="w-3 h-3" />
-                  </button>
-                </div>
-                {/* Short preview */}
-                <p className="text-[10px] text-slate-500 line-clamp-2 mt-1 leading-relaxed font-sans">{n.content}</p>
-                {/* date */}
-                <div className="flex items-center justify-between mt-2.5">
-                  <span className="text-[8px] font-mono text-slate-500">
-                    {new Date(n.updatedDate).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', {
-                      month: 'short', day: 'numeric'
-                    })}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-
-          {notes.length === 0 && (
+        <div className="flex-1 overflow-hidden relative p-2">
+          {notes.length > 0 ? (
+            <VirtualList
+              items={notes}
+              itemHeight={92}
+              containerHeight="100%"
+              renderItem={(n: NoteItem) => {
+                const isSel = selectedNote?.id === n.id;
+                return (
+                  <div className="pb-1 select-none">
+                    <div
+                      onClick={() => setSelectedNote(n)}
+                      className={`p-3 rounded-lg border text-left cursor-pointer transition-all h-[88px] flex flex-col justify-between overflow-hidden ${
+                        isSel 
+                          ? 'bg-white/[0.08] border-white/10 shadow-md text-white' 
+                          : 'border-transparent hover:bg-white/[0.04] hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-1.5 shrink-0">
+                        <div className="text-xs font-semibold truncate flex-1">{n.title || getTranslation(lang, 'untitledScratchpad')}</div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteNoteObj(n.id); }}
+                          className="p-0.5 rounded text-slate-500 hover:text-rose-400 hover:bg-white/5 transition-all cursor-pointer"
+                        >
+                          <Icons.Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                      {/* Short preview */}
+                      <p className="text-[10px] text-slate-500 line-clamp-2 mt-1 leading-relaxed font-sans flex-1">{n.content}</p>
+                      {/* date */}
+                      <div className="flex items-center justify-between mt-1 shrink-0">
+                        <span className="text-[8px] font-mono text-slate-500">
+                          {new Date(n.updatedDate).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', {
+                            month: 'short', day: 'numeric'
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }}
+            />
+          ) : (
             <div className="text-center py-10 italic text-[11px] text-slate-500">
               {getTranslation(lang, 'noNotesFound')}
             </div>

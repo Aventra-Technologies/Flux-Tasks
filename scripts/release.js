@@ -407,6 +407,7 @@ async function startRelease() {
     const asarUrl = `https://github.com/${repoOwner}/${repoName}/releases/download/v${version}/app.asar`;
     const packageUrl = `https://github.com/${repoOwner}/${repoName}/releases/download/v${version}/Flux.Tasks.Setup.exe`;
     const packageMirrorUrl = `https://github.com/${repoOwner}/${repoName}/releases/latest/download/Flux.Tasks.Setup.exe`;
+    const latestManifestUrl = `https://github.com/${repoOwner}/${repoName}/releases/latest/download/latest.json`;
 
     const manifest = {
       version: version,
@@ -442,6 +443,7 @@ async function startRelease() {
 
     const webInstallerConfig = {
       version,
+      manifestUrl: latestManifestUrl,
       primaryUrl: packageUrl,
       mirrorUrl: packageMirrorUrl,
       expectedSha256: setupSha256,

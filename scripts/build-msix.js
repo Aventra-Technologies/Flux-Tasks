@@ -102,10 +102,7 @@ if (!fs.existsSync(assetsDir)) {
 }
 
 // Source PNG
-const sourcePngPath = [
-  path.join(__dirname, '..', 'assets', 'icon.png'),
-  path.join(__dirname, '..', 'assets', 'logo.png')
-].find(fs.existsSync);
+const sourcePngPath = path.join(__dirname, '..', 'assets', 'icon.png');
 
 if (!sourcePngPath) {
   console.error('Error: Source PNG icon was not found in assets/ directory.');
@@ -252,7 +249,7 @@ const manifestXml = `<?xml version="1.0" encoding="utf-8"?>
         <desktop7:Extension Category="windows.shortcut">
           <desktop7:Shortcut
             File="[{Desktop}]\\${escapeXml(displayName)}.lnk"
-            Icon="Assets\\Square150x150Logo.png" />
+            Icon="[{Package}]\\Assets\\Square150x150Logo.png" />
         </desktop7:Extension>
       </Extensions>
     </Application>

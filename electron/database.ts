@@ -247,28 +247,56 @@ export function initDatabase() {
     try { db.exec(migration); } catch (e) {}
   }
 
+  // Indexes for high performance searches & joins
+  const indexes = [
+    "CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(projectId);",
+    "CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);",
+    "CREATE INDEX IF NOT EXISTS idx_task_tags_tag ON task_tags(tag);",
+    "CREATE INDEX IF NOT EXISTS idx_checklist_tasks ON checklist_items(taskId);",
+    "CREATE INDEX IF NOT EXISTS idx_attachments_tasks ON attachments(taskId);",
+    "CREATE INDEX IF NOT EXISTS idx_prompts_tasks ON prompts(taskId);",
+    "CREATE INDEX IF NOT EXISTS idx_activity_logs_tasks ON activity_logs(taskId);"
+  ];
+  for (const idx of indexes) {
+    try { db.exec(idx); } catch (e) {}
+  }
+
   // Run orphan file cleanup on start
   cleanupOrphanAttachments();
 
   console.log('Database tables successfully verified/created.');
 }
 
+// Prepared Statement Cache
+const stmtCache = new Map<string, any>();
+
+export function clearStmtCache() {
+  stmtCache.clear();
+}
+
+function getPreparedStatement(sql: string) {
+  if (!db) throw new Error('Database not initialized');
+  let stmt = stmtCache.get(sql);
+  if (!stmt) {
+    stmt = db.prepare(sql);
+    stmtCache.set(sql, stmt);
+  }
+  return stmt;
+}
+
 // Helpers
 function runQuery(sql: string, params: any[] = []) {
-  if (!db) throw new Error('Database not initialized');
-  const stmt = db.prepare(sql);
+  const stmt = getPreparedStatement(sql);
   return stmt.run(...params);
 }
 
 function allQuery(sql: string, params: any[] = []) {
-  if (!db) throw new Error('Database not initialized');
-  const stmt = db.prepare(sql);
+  const stmt = getPreparedStatement(sql);
   return stmt.all(...params);
 }
 
 function getQuery(sql: string, params: any[] = []) {
-  if (!db) throw new Error('Database not initialized');
-  const stmt = db.prepare(sql);
+  const stmt = getPreparedStatement(sql);
   return stmt.get(...params);
 }
 
@@ -347,7 +375,7 @@ export function loadTasks(): Task[] {
   const checklistRows = allQuery('SELECT * FROM checklist_items');
   const attachmentsRows = allQuery('SELECT * FROM attachments');
   const promptsRows = allQuery('SELECT * FROM prompts WHERE taskId IS NOT NULL');
-  const logsRows = allQuery('SELECT * FROM activity_logs ORDER BY timestamp ASC');
+  const logsRows = allQuery('SELECT * FROM activity_logs WHERE taskId IS NOT NULL ORDER BY timestamp ASC');
 
   // Build maps for quick lookup
   const tagsMap: Record<string, string[]> = {};
@@ -765,6 +793,16 @@ export function getDatabasePath(): string {
   return dbPath;
 }
 
+export function getSqliteVersion(): string {
+  try {
+    if (!db) return '3.x';
+    const row = db.prepare('SELECT sqlite_version() AS version').get() as any;
+    return row?.version || '3.x';
+  } catch (e) {
+    return '3.x';
+  }
+}
+
 function getFormattedBackupFileName(type: 'auto' | 'manual'): string {
   const now = new Date();
   const YYYY = now.getFullYear();
@@ -922,6 +960,7 @@ export function restoreBackupFile(fileName: string): boolean {
   }
 
   // Close active connection
+  clearStmtCache();
   db = null;
 
   // Copy backup over tasks.db

@@ -40,10 +40,11 @@ function sendPayload(req, res, shouldDrop) {
   res.end(body);
 }
 
-function writeConfig(dir, port, primaryPath, mirrorPath, hash = sha256) {
+function writeConfig(dir, port, primaryPath, mirrorPath, hash = sha256, manifestPath = '') {
   const configPath = path.join(dir, 'installer-config.json');
   fs.writeFileSync(configPath, JSON.stringify({
     version: 'test',
+    manifestUrl: manifestPath ? `http://127.0.0.1:${port}${manifestPath}` : '',
     primaryUrl: `http://127.0.0.1:${port}${primaryPath}`,
     mirrorUrl: mirrorPath ? `http://127.0.0.1:${port}${mirrorPath}` : '',
     expectedSha256: hash,
@@ -52,9 +53,9 @@ function writeConfig(dir, port, primaryPath, mirrorPath, hash = sha256) {
   return configPath;
 }
 
-async function runCase(name, port, primaryPath, mirrorPath, setup, expectedSuccess, hash) {
+async function runCase(name, port, primaryPath, mirrorPath, setup, expectedSuccess, hash, manifestPath) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `flux-installer-${name}-`));
-  const configPath = writeConfig(dir, port, primaryPath, mirrorPath, hash);
+  const configPath = writeConfig(dir, port, primaryPath, mirrorPath, hash, manifestPath);
   if (setup) setup(dir);
   const status = await new Promise((resolve, reject) => {
     const child = spawn(installer, ['--download-only', configPath, dir], { windowsHide: true });
@@ -87,6 +88,19 @@ const server = http.createServer((req, res) => {
   if (req.url === '/ok') return sendPayload(req, res, false);
   if (req.url === '/drop') return sendPayload(req, res, true);
   if (req.url === '/mirror') return sendPayload(req, res, false);
+  if (req.url === '/latest.json') {
+    const manifest = JSON.stringify({
+      version: 'latest-test',
+      packageUrl: `http://127.0.0.1:${server.address().port}/ok`,
+      packageMirrorUrl: '',
+      packageSha256: sha256
+    });
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(manifest)
+    });
+    return res.end(manifest);
+  }
   res.writeHead(503, { 'Content-Type': 'text/plain', 'Content-Length': 11 });
   res.end('unavailable');
 });
@@ -100,6 +114,7 @@ server.listen(0, '127.0.0.1', async () => {
       fs.writeFileSync(path.join(dir, 'FluxTasks-Test.exe.part'), payload.subarray(0, 128 * 1024));
     }, true);
     await runCase('fallback-mirror', port, '/unavailable', '/mirror', null, true);
+    await runCase('latest-manifest', port, '/unavailable', '', null, true, '0'.repeat(64), '/latest.json');
     await runCase('wrong-hash', port, '/ok', '', null, false, '0'.repeat(64));
   } catch (error) {
     console.error(error);

@@ -186,8 +186,25 @@ export function setRunInBackground(enabled: boolean) {
 }
 
 export function setAutoLaunch(enabled: boolean) {
-  app.setLoginItemSettings({ openAtLogin: enabled, args: enabled ? ['--background'] : [] });
+  app.setLoginItemSettings({
+    name: 'Flux Tasks',
+    path: process.execPath,
+    openAtLogin: enabled,
+    openAsHidden: true,
+    args: enabled ? ['--background'] : []
+  });
   saveSetting('autoLaunch', String(enabled));
+}
+
+export function getAutoLaunchStatus() {
+  return app.getLoginItemSettings({
+    path: process.execPath,
+    args: ['--background']
+  });
+}
+
+export function syncAutoLaunchFromSettings() {
+  setAutoLaunch((loadSettings().autoLaunch ?? 'false') === 'true');
 }
 
 export function consumePendingTaskId() {
