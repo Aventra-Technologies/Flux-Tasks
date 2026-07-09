@@ -2,7 +2,7 @@
   "name": "flux-tasks",
   "productName": "Flux Tasks",
   "private": true,
-  "version": "1.1.28",
+  "version": "1.1.29",
   "repository": {
     "type": "git",
     "url": "https://github.com/Flux-Tasks/Flux-Tasks.git"
@@ -10,8 +10,8 @@
   "homepage": "https://github.com/Flux-Tasks/Flux-Tasks#readme",
   "description": "Local-first desktop task manager with GitHub integration and background reminders.",
   "author": {
-    "name": "Flux Tasks Organization",
-    "url": "https://github.com/Flux-Tasks"
+    "name": "Aventra Technologies",
+    "url": "https://aventra.technology"
   },
   "license": "MIT",
   "bugs": {
@@ -25,6 +25,8 @@
     "build:electron": "esbuild electron/main.ts --bundle --platform=node --external:electron --outfile=dist-electron/main.js && esbuild electron/preload.ts --bundle --platform=node --external:electron --outfile=dist-electron/preload.js",
     "build": "npm run build:frontend && npm run build:electron && electron-builder --win",
     "build:web-installer": "node scripts/build-installer.js",
+    "build:msi": "node scripts/build-msi.js",
+    "build:msix": "node scripts/build-msix.js",
     "test:web-installer": "npm run build:web-installer && node scripts/test-web-installer.js",
     "package": "npm run build",
     "release": "node scripts/release.js",
@@ -59,6 +61,7 @@
   "build": {
     "appId": "com.flux.tasks",
     "productName": "Flux Tasks",
+    "copyright": "© 2026 Aventra Technologies",
     "directories": {
       "output": "release"
     },
@@ -82,8 +85,9 @@
       "icon": "assets/icon.png"
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Flux Tasks",
