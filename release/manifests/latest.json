@@ -1,12 +1,12 @@
 {
-  "version": "1.1.30",
+  "version": "1.1.31",
   "channel": "stable",
   "updateType": "asar",
-  "asarUrl": "https://github.com/Flux-Tasks/Flux-Tasks/releases/download/v1.1.30/app.asar",
-  "packageUrl": "https://github.com/Flux-Tasks/Flux-Tasks/releases/download/v1.1.30/Flux.Tasks.Setup.exe",
+  "asarUrl": "https://github.com/Flux-Tasks/Flux-Tasks/releases/download/v1.1.31/app.asar",
+  "packageUrl": "https://github.com/Flux-Tasks/Flux-Tasks/releases/download/v1.1.31/Flux.Tasks.Setup.exe",
   "packageMirrorUrl": "https://github.com/Flux-Tasks/Flux-Tasks/releases/latest/download/Flux.Tasks.Setup.exe",
-  "packageSha256": "713d9916681296af060b1d205a978dc334f6fa75606e3ee33ed0dfa5c2c62810",
-  "packageSize": 119365653,
+  "packageSha256": "92b93f8aa3e6b79667fabffab60cc55c61e49032ae05c2b18a88ac0a3c9c89d5",
+  "packageSize": 119365681,
   "sha256": "674dfddc4ba8ec2935103da605a102901155fef0f676d533512cda92bdc93c13",
   "size": 52794228,
   "releaseNotes": [
@@ -25,5 +25,5 @@
     "Централизована логика навигации в store: переходы между разделами теперь автоматически сбрасывают открытую задачу.",
     "Оптимизирована палитра команд: результаты поиска кешируются через useMemo, меньше лишних пересчётов при вводе и навигации клавиатурой."
   ],
-  "publishedAt": "2026-07-09T17:21:45.687Z"
+  "publishedAt": "2026-07-09T17:32:00.248Z"
 }
