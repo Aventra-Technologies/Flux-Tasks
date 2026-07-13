@@ -34,6 +34,6 @@ Contributors who violate this Code of Conduct may be warned, temporarily restric
 
 If you experience or witness unacceptable behavior, please contact:
 
-[security@tech.bamboo-ecosystem.tech](mailto:security@tech.bamboo-ecosystem.tech)
+[contact@aventra.technology](mailto:contact@aventra.technology)
 
 All reports will be handled confidentially whenever possible.
