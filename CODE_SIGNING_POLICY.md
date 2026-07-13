@@ -10,7 +10,7 @@ Code signing is used to verify the authenticity and integrity of official releas
 
 Source code is publicly available at:
 
-https://github.com/Flux-Tasks/Flux-Tasks
+https://github.com/Aventra-Technologies/Flux-Tasks
 
 ## Open Source License
 
@@ -48,7 +48,7 @@ Signing operations are performed through secure signing infrastructure.
 
 Users should download software only from official project sources:
 
-https://github.com/Flux-Tasks/Flux-Tasks/releases
+https://github.com/Aventra-Technologies/Flux-Tasks/releases
 
 Users are encouraged to verify digital signatures whenever possible.
 
