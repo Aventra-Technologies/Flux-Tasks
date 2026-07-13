@@ -210,9 +210,9 @@ Flux Tasks создан на базе современных, лёгких и п
 
 ### 1. Установка из Microsoft Store
 
-Вы можете установить приложение напрямую из магазина приложений Windows, нажав на значок ниже или перейдя по [прямой ссылке](https://apps.microsoft.com/detail/9P0R972KSWCH):
-
-[![Доступно в Microsoft Store](https://get.microsoft.com/images/ru-ru%20dark.svg)](https://apps.microsoft.com/detail/9P0R972KSWCH)
+<a href="https://apps.microsoft.com/detail/9P0R972KSWCH">
+  <img src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Скачать из Microsoft Store" width="190" />
+</a>
 
 ### 2. Ручная установка
 
