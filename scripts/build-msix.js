@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const { loadEnv, runCompilation, escapeXml } = require('./build-common');
+const { getMsixShortcutIcon } = require('./msix-shortcut');
 
 // 1. Initial setup and load env vars
 loadEnv();
@@ -249,7 +250,7 @@ const manifestXml = `<?xml version="1.0" encoding="utf-8"?>
         <desktop7:Extension Category="windows.shortcut">
           <desktop7:Shortcut
             File="[{Desktop}]\\${escapeXml(displayName)}.lnk"
-            Icon="[{Package}]\\Assets\\Square150x150Logo.png" />
+            Icon="${escapeXml(getMsixShortcutIcon(mainExe))}" />
         </desktop7:Extension>
       </Extensions>
     </Application>

@@ -46,6 +46,7 @@ import {
   rescheduleAllDeadlineNotifications,
   sendTestNotification
 } from './notification-service';
+import { configureSingleInstance } from './single-instance';
 
 app.name = 'Flux Tasks';
 app.setAppUserModelId("com.flux.tasks");
@@ -53,6 +54,8 @@ app.setAppUserModelId("com.flux.tasks");
 let mainWindow: BrowserWindow | null = null;
 let recoveryModeActive = false;
 let isQuitting = false;
+
+const isPrimaryInstance = configureSingleInstance(app, () => mainWindow);
 
 function logToFile(message: string) {
   try {
@@ -262,7 +265,7 @@ function initAutoBackupTimer() {
   }
 }
 
-app.whenReady().then(() => {
+if (isPrimaryInstance) app.whenReady().then(() => {
   recoveryModeActive = initStartupCrashDetector();
 
   // Initialize SQLite database (required before window loads to allow instant IPC DB calls)

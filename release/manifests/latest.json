@@ -1,20 +1,17 @@
 {
-  "version": "1.1.31",
+  "version": "1.1.32",
   "channel": "stable",
   "updateType": "asar",
-  "asarUrl": "https://github.com/Flux-Tasks/Flux-Tasks/releases/download/v1.1.31/app.asar",
-  "packageUrl": "https://github.com/Flux-Tasks/Flux-Tasks/releases/download/v1.1.31/Flux.Tasks.Setup.exe",
+  "asarUrl": "https://github.com/Flux-Tasks/Flux-Tasks/releases/download/v1.1.32/app.asar",
+  "packageUrl": "https://github.com/Flux-Tasks/Flux-Tasks/releases/download/v1.1.32/Flux.Tasks.Setup.exe",
   "packageMirrorUrl": "https://github.com/Flux-Tasks/Flux-Tasks/releases/latest/download/Flux.Tasks.Setup.exe",
-  "packageSha256": "c9bbe2cf3c62c3130fe392b5e62e1e6dfb9b1b42dafd73ca76170ebbfeb8a917",
-  "packageSize": 119365681,
+  "packageSha256": "a87f010357b7ba4c38d7523795a9e60c7a13b5856a2a1e71836d9decc58f1d3b",
+  "packageSize": 119365643,
   "sha256": "674dfddc4ba8ec2935103da605a102901155fef0f676d533512cda92bdc93c13",
   "size": 52794228,
   "releaseNotes": [
-    "Устранён критический сбой рабочего пространства с ошибкой React #310.",
-    "Исправлено нарушение порядка вызова React-хуков после завершения загрузки.",
-    "Удалено условное использование useMemo при формировании списка тегов.",
-    "Предотвращено падение интерфейса при переходе от экрана загрузки к рабочему пространству.",
-    "Пользовательские проекты и данные SQLite не затрагиваются."
+    "Повторный запуск теперь открывает уже запущенное приложение без создания лишних фоновых процессов.",
+    "Исправлено отображение логотипа на ярлыках при установке через Microsoft Store (MSIX)."
   ],
-  "publishedAt": "2026-07-10T11:08:11.060Z"
+  "publishedAt": "2026-07-15T20:46:56.779Z"
 }
